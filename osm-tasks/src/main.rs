@@ -7,8 +7,8 @@ use rayon::prelude::*;
 fn main() {
     println!("Hello, world!");
 
-    let mut coastlines_map = HashMap::new();
-    let mut ways_to_nodes_map = HashMap::new();
+    //let mut coastlines_map = HashMap::new();
+    //let mut ways_to_nodes_map = HashMap::new();
 
     let mut number_merged_nodes = 0_u64;
     let mut merged_ways: LinkedList<Coastline> = LinkedList::new();
@@ -19,18 +19,74 @@ fn main() {
     //let reader = ElementReader::from_path("./planet-coastlines.osm.pbf").expect("failed");
     let mut ways = 0_u64;
     let mut coastlines = 0_u64;
-    /*let ways = reader.par_map_reduce(
+    let coastlines_map2 = reader.par_map_reduce(
         |element| {
-            match element {
-                Element::Way(_) => 1,
-                _ => 0,
+            if let Element::Way(way) = element {
+                for (key, value) in way.tags() {
+                    if let ("natural", "coastline") = (key, value) {
+                        let nodes: Vec<_> = way.refs().collect();
+                        if nodes.len() <= 1 {
+                            // Way with a single node does not give as any information -> discard
+                            break;
+                        }
+                        if let Some(first_node) = nodes.first() {
+                            if let Some(last_node) = nodes.last() {
+                                if *first_node == *last_node {
+                                    // already closed polygon
+                                   /* let mut llist = LinkedList::new();
+                                    llist.push_back(way.id());
+                                    merged_ways.push_back(Coastline { nodes, ways: llist });
+                                    number_merged_nodes += 1;*/
+                                    // Todo: handle these ways
+                                    println!("Discarded polygon. Fix this to handle this case correctly");
+                                    break;
+                                } else {
+                                    return MapOrPair::Entries(vec![(*first_node, WayNodePair { way: way.id(), node: *last_node }),
+                                                                   (*last_node, WayNodePair { way: way.id(), node: *first_node })]);
+                                }
+                            }
+                        }
+                        break;
+                        // println!("key: {}, value: {}", key, value);
+                    }
+                }
             }
+            MapOrPair::Entries(vec![])
         },
-        || 0_u64,      // Zero is the identity value for addition
-        |a, b| a + b   // Sum the partial results
-    ).expect("fail");*/
+        || MapOrPair::Map(HashMap::new()),      // Zero is the identity value for addition
+        |a, b| {
+            match (a, b) {
+                (MapOrPair::Map(mut mapA), MapOrPair::Map(mapB))=>{
+                    mapA.extend(mapB);
+                    return MapOrPair::Map(mapA);
+                }
+                (MapOrPair::Map(mut map), MapOrPair::Entries(mut entries)) | (MapOrPair::Entries(mut entries), MapOrPair::Map(mut map)) =>{
+                    entries.iter().for_each(|(mut key, mut entry)|{
+                        map.entry(key).and_modify(|e: &mut Vec<WayNodePair>| { e.push(entry)}).or_insert(vec![entry]);
+                    });
+                    return MapOrPair::Map(map);
+                }
+                (MapOrPair::Entries(entriesA), MapOrPair::Entries(entriesB)) => {
+                    let mut map = HashMap::new();
+                    entriesA.iter().for_each(|(key, mut entry)|{
+                        map.entry(*key).and_modify(|e: &mut Vec<WayNodePair>| e.push(entry)).or_insert(vec![entry]);
+                    });
+                    entriesB.iter().for_each(|(key, mut entry)|{
+                        map.entry(*key).and_modify(|e: &mut Vec<WayNodePair>| { e.push(entry)}).or_insert(vec![entry]);
+                    });
+                    return MapOrPair::Map(map);
+                }
+                _ => {
+                    // Should not happen
+                    println!("Unhandeled case!");
+                    MapOrPair::Entries(vec![])
+                }
+            }
+            }
+    ).expect("fail");
+    let mut coastlines_map = coastlines_map2.unwrapMap();
 // Increment the counter by one for each way.
-    reader.for_each(|element| {
+    /*reader.for_each(|element| {
         if let Element::Way(way) = element {
             ways += 1;
             if ways % 1000_u64 == 0_u64 {
@@ -70,7 +126,8 @@ fn main() {
             }
         }
     }).expect("failed5");
-    println!("{} of {} ways are coastlines", coastlines, ways);
+        println!("{} of {} ways are coastlines", coastlines, ways);
+     */
     coastlines_map.par_iter().for_each(|(k, v)| {
         if v.len() != 2 {
             println!("!Node is referenced by {} ways: {}", v.len(), k);
@@ -208,7 +265,22 @@ struct Coastline {
     ways: LinkedList<i64>,
 }
 
+#[derive(Copy, Clone)]
 struct WayNodePair {
     way: i64,
     node: i64,
+}
+
+enum MapOrPair {
+    Map(HashMap<i64, Vec<WayNodePair>>),
+    Entries(Vec<(i64, WayNodePair)>)
+}
+
+impl MapOrPair {
+    fn unwrapMap(self) -> HashMap<i64, Vec<WayNodePair>> {
+        match self {
+            MapOrPair::Map(map) => map,
+            _ => panic!("expected map"),
+        }
+    }
 }
