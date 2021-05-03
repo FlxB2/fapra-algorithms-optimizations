@@ -19,7 +19,7 @@ fn main() {
     let reader = ElementReader::from_path("./planet-coastlines.osm.pbf").expect("failed");
     // let mut ways = 0_u64;
     let mut coastlines = 0_u64;
-    let (coastlines_map_wrapped, ways_to_nodes_map_wrapped) = reader.par_map_reduce(
+    let (coastlines_map_wrapped, ways_to_nodes_map_wrapped, node_coordinates_map_wrapped) = reader.par_map_reduce(
         |element| {
             if let Element::Way(way) = element {
                 for (key, value) in way.tags() {
@@ -43,7 +43,8 @@ fn main() {
                                 } else {
                                     return (MapOrEntry::Entries(vec![(*first_node, WayNodePair { way: way.id(), node: *last_node }),
                                                                      (*last_node, WayNodePair { way: way.id(), node: *first_node })]),
-                                            MapOrEntry::Entries(vec![(way.id(), nodes )]));
+                                            MapOrEntry::Entries(vec![(way.id(), nodes )]),
+                                    MapOrEntry::Entries(vec![]));
                                 }
                             }
                         }
@@ -51,16 +52,21 @@ fn main() {
                         // println!("key: {}, value: {}", key, value);
                     }
                 }
+            }else {
+                if let Element::Node(node) = element {
+                    return (MapOrEntry::Entries(vec![]), MapOrEntry::Entries(vec![]), MapOrEntry::Entries(vec![(node.id(),(node.lat(), node.lon()))]));
+                }
             }
-            (MapOrEntry::Entries(vec![]), MapOrEntry::Entries(vec![]))
+            (MapOrEntry::Entries(vec![]), MapOrEntry::Entries(vec![]), MapOrEntry::<(f64, f64)>::Entries(vec![]))
         },
-        || (MapOrEntry::Map(HashMap::new()), MapOrEntry::Map(HashMap::new())),      // Zero is the identity value for addition
-        |(a1,a2),(b1, b2)|{
-            (MapOrEntry::<WayNodePair>::combine(a1, b1), MapOrEntry::<Vec<i64>>::combine(a2, b2))
+        || (MapOrEntry::Map(HashMap::new()), MapOrEntry::Map(HashMap::new()), MapOrEntry::Map(HashMap::new())),      // Zero is the identity value for addition
+        |(a1,a2, a3),(b1, b2, b3)|{
+            (MapOrEntry::<WayNodePair>::combine(a1, b1), MapOrEntry::<Vec<i64>>::combine(a2, b2), MapOrEntry::<(f64, f64)>::combine(a3, b3))
         }
     ).expect("fail");
     let mut coastlines_map = coastlines_map_wrapped.unwrap_map();
     let ways_to_nodes_map = ways_to_nodes_map_wrapped.unwrap_map();
+    let node_coordinate_map = node_coordinates_map_wrapped.unwrap_map();
 // Increment the counter by one for each way.
     /*reader.for_each(|element| {
         if let Element::Way(way) = element {
@@ -117,24 +123,23 @@ fn main() {
         let first_pair = pair_list.first().expect("Pair list empty for node");
         let mut list = LinkedList::new();
         list.push_back(first_pair.way);
-        let mut current_coastline = Coastline { nodes: vec![], ways: list };
+        let mut current_coastline = Coastline { nodes: vec![], ways: list, top_node: *first_node_top};
         let mut reached_unconnected_node_top = false;
         let mut reached_unconnected_node_bottom = false;
-        let mut top_node_coastline = *first_node_top;
         let mut bottom_node_coastline = first_pair.node;
         let mut top_way_coastline = first_pair.way;
         let mut bottom_way_coastline = first_pair.way;
         while !reached_unconnected_node_bottom || !reached_unconnected_node_top {
             // merge until reached unconnected nodes at both ends
-            if bottom_node_coastline == top_node_coastline {
+            if bottom_node_coastline == current_coastline.top_node {
                 // polygon closed
                 break;
             }
             if !reached_unconnected_node_top {
-                if let Some(ways_for_node) = coastlines_map.get(&top_node_coastline) {
+                if let Some(ways_for_node) = coastlines_map.get(&current_coastline.top_node) {
                     if ways_for_node.len() != 2 {
                         // reached top end of connected ways
-                        coastlines_map.remove(&top_node_coastline);
+                        coastlines_map.remove(&current_coastline.top_node);
                         reached_unconnected_node_top = true;
                         continue;
                     }
@@ -147,7 +152,7 @@ fn main() {
                     }
                     if top_way_coastline == other_way_node_pair.way {
                         // special case of the map data contains a way which is already a closed polygon
-                        coastlines_map.remove(&top_node_coastline);
+                        coastlines_map.remove(&current_coastline.top_node);
                         break;
                     }
                     current_coastline.ways.push_front(other_way_node_pair.way);
@@ -164,16 +169,16 @@ fn main() {
                     }*/
                     let new_top_node_coastline = other_way_node_pair.node;
                     top_way_coastline = other_way_node_pair.way;
-                    coastlines_map.remove(&top_node_coastline);
-                    top_node_coastline = new_top_node_coastline;
+                    coastlines_map.remove(&current_coastline.top_node);
+                    current_coastline.top_node = new_top_node_coastline;
                 } else {
                     // Should not happen
-                    println!("No entry in coastline map for top node {} of way {}", top_node_coastline, top_way_coastline);
+                    println!("No entry in coastline map for top node {} of way {}", current_coastline.top_node, top_way_coastline);
                     reached_unconnected_node_top = true;
                 }
                 // check if the current coastline is already a closed polygon
             }
-            if bottom_node_coastline == top_node_coastline {
+            if bottom_node_coastline == current_coastline.top_node {
                 // polygon closed
                 break;
             }
@@ -218,10 +223,10 @@ fn main() {
                 }
             }
         }
-        if top_node_coastline == bottom_node_coastline {
-            println!("Finished looped coastline from {} (of way {}) to {} (of way {}) out of {} ways", top_node_coastline, top_way_coastline, bottom_node_coastline, bottom_way_coastline, current_coastline.ways.len());
+        if current_coastline.top_node == bottom_node_coastline {
+            println!("Finished looped coastline from {} (of way {}) to {} (of way {}) out of {} ways", current_coastline.top_node, top_way_coastline, bottom_node_coastline, bottom_way_coastline, current_coastline.ways.len());
         } else {
-            println!("Finished partly coastline from {} (of way {}) to {} (of way {}) out of {} ways", top_node_coastline, top_way_coastline, bottom_node_coastline, bottom_way_coastline, current_coastline.ways.len());
+            println!("Finished partly coastline from {} (of way {}) to {} (of way {}) out of {} ways", current_coastline.top_node, top_way_coastline, bottom_node_coastline, bottom_way_coastline, current_coastline.ways.len());
         }
         merged_ways.push_back(current_coastline);
     }
@@ -235,18 +240,63 @@ fn main() {
     println!("+ {} coastlines merged out of a single way", number_one_way_coastlines);
 
 
+    merged_ways = merged_ways.into_iter().par_bridge().map(|mut coastline|{
+        coastline.nodes.reserve(1000);
+        let mut current_top_node = coastline.top_node;
+        let mut coastline_nodes = coastline.nodes;
+        coastline.ways.iter().for_each(|way|{
+            let way_copy = *way;
+            if let Some(nodes) = ways_to_nodes_map.get(&way_copy) {
+                if !coastline_nodes.is_empty() {
+                    // remove last node because the top node is part of the current nodes array and of
+                    // the nodes array that is appended to it
+                    coastline_nodes.remove(coastline_nodes.len() - 1);
+                }
+                if *nodes.first().unwrap().first().unwrap() == current_top_node {
+                    // right order
+                    coastline_nodes.append(&mut nodes.first().unwrap().clone());
+                } else {
+                    // nodes are reversed
+                    let mut reversed_other_nodes =  nodes.first().unwrap().clone();
+                    reversed_other_nodes.reverse();
+                    coastline_nodes.append(&mut reversed_other_nodes);
+                }
+                current_top_node = *coastline_nodes.last().unwrap();
+            }else{
+                //Should not happen
+                println!("Could not resolve node list for way: {}", way_copy)
+            }
+        });
+        coastline.nodes = coastline_nodes;
+        return coastline
+    }).collect();
+
+    let ways_to_coords_map : HashMap<i64, Vec<(f64, f64)>> = ways_to_nodes_map.into_iter().par_bridge().map(|(k,v)|{
+        let mut coords : Vec<(f64,f64)> = Vec::with_capacity(v.len());
+        v.iter().for_each(|nodeId|{
+            if let Some(coord) = node_coordinate_map.get(nodeId.first().unwrap()){
+                coords.push(*coord.first().unwrap());
+            }
+        });
+        return (k, coords);
+    }).collect();
+
+    merged_ways.iter().par_bridge().for_each(|e|{
+        println!("Coastline out of {} ways and {} nodes", e.ways.len(), e.nodes.len());
+    })
 }
 
 
 struct Coastline {
     nodes: Vec<i64>,
     ways: LinkedList<i64>,
+    top_node: i64
 }
 
 #[derive(Copy, Clone)]
 struct WayNodePair {
     way: i64,
-    node: i64,
+    node: i64
 }
 
 enum MapOrEntry<T>{
