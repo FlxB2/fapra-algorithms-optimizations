@@ -1,7 +1,7 @@
 use std::collections::{HashMap, LinkedList};
 use std::time::Instant;
 
-use osmpbf::{Element, ElementReader, Node, Way};
+use osmpbf::{Element, ElementReader};
 use rayon::prelude::*;
 
 fn main() {
@@ -13,18 +13,18 @@ fn main() {
     let mut number_merged_nodes = 0_u64;
     let mut merged_ways: LinkedList<Coastline> = LinkedList::new();
 
-    let reader = ElementReader::from_path("./monaco-latest.osm.pbf").expect("failed");
+    //let reader = ElementReader::from_path("./monaco-latest.osm.pbf").expect("failed");
     //let reader = ElementReader::from_path("./iceland-coastlines.osm.pbf").expect("failed");
     //let reader = ElementReader::from_path("./sa-coastlines.osm.pbf").expect("failed");
-    //let reader = ElementReader::from_path("./planet-coastlines.osm.pbf").expect("failed");
-    let mut ways = 0_u64;
+    let reader = ElementReader::from_path("./planet-coastlines.osm.pbf").expect("failed");
+    // let mut ways = 0_u64;
     let mut coastlines = 0_u64;
-    let coastlines_map2 = reader.par_map_reduce(
+    let (coastlines_map_wrapped, ways_to_nodes_map_wrapped) = reader.par_map_reduce(
         |element| {
             if let Element::Way(way) = element {
                 for (key, value) in way.tags() {
                     if let ("natural", "coastline") = (key, value) {
-                        let nodes: Vec<_> = way.refs().collect();
+                        let nodes: Vec<i64> = way.refs().collect();
                         if nodes.len() <= 1 {
                             // Way with a single node does not give as any information -> discard
                             break;
@@ -41,8 +41,9 @@ fn main() {
                                     println!("Discarded polygon. Fix this to handle this case correctly");
                                     break;
                                 } else {
-                                    return MapOrPair::Entries(vec![(*first_node, WayNodePair { way: way.id(), node: *last_node }),
-                                                                   (*last_node, WayNodePair { way: way.id(), node: *first_node })]);
+                                    return (MapOrEntry::Entries(vec![(*first_node, WayNodePair { way: way.id(), node: *last_node }),
+                                                                     (*last_node, WayNodePair { way: way.id(), node: *first_node })]),
+                                            MapOrEntry::Entries(vec![(way.id(), nodes )]));
                                 }
                             }
                         }
@@ -51,40 +52,15 @@ fn main() {
                     }
                 }
             }
-            MapOrPair::Entries(vec![])
+            (MapOrEntry::Entries(vec![]), MapOrEntry::Entries(vec![]))
         },
-        || MapOrPair::Map(HashMap::new()),      // Zero is the identity value for addition
-        |a, b| {
-            match (a, b) {
-                (MapOrPair::Map(mut mapA), MapOrPair::Map(mapB))=>{
-                    mapA.extend(mapB);
-                    return MapOrPair::Map(mapA);
-                }
-                (MapOrPair::Map(mut map), MapOrPair::Entries(mut entries)) | (MapOrPair::Entries(mut entries), MapOrPair::Map(mut map)) =>{
-                    entries.iter().for_each(|(mut key, mut entry)|{
-                        map.entry(key).and_modify(|e: &mut Vec<WayNodePair>| { e.push(entry)}).or_insert(vec![entry]);
-                    });
-                    return MapOrPair::Map(map);
-                }
-                (MapOrPair::Entries(entriesA), MapOrPair::Entries(entriesB)) => {
-                    let mut map = HashMap::new();
-                    entriesA.iter().for_each(|(key, mut entry)|{
-                        map.entry(*key).and_modify(|e: &mut Vec<WayNodePair>| e.push(entry)).or_insert(vec![entry]);
-                    });
-                    entriesB.iter().for_each(|(key, mut entry)|{
-                        map.entry(*key).and_modify(|e: &mut Vec<WayNodePair>| { e.push(entry)}).or_insert(vec![entry]);
-                    });
-                    return MapOrPair::Map(map);
-                }
-                _ => {
-                    // Should not happen
-                    println!("Unhandeled case!");
-                    MapOrPair::Entries(vec![])
-                }
-            }
-            }
+        || (MapOrEntry::Map(HashMap::new()), MapOrEntry::Map(HashMap::new())),      // Zero is the identity value for addition
+        |(a1,a2),(b1, b2)|{
+            (MapOrEntry::<WayNodePair>::combine(a1, b1), MapOrEntry::<Vec<i64>>::combine(a2, b2))
+        }
     ).expect("fail");
-    let mut coastlines_map = coastlines_map2.unwrapMap();
+    let mut coastlines_map = coastlines_map_wrapped.unwrap_map();
+    let ways_to_nodes_map = ways_to_nodes_map_wrapped.unwrap_map();
 // Increment the counter by one for each way.
     /*reader.for_each(|element| {
         if let Element::Way(way) = element {
@@ -133,7 +109,6 @@ fn main() {
             println!("!Node is referenced by {} ways: {}", v.len(), k);
         }
     });
-
 
     let mut last_print_time = Instant::now();
     let start_time = Instant::now();
@@ -258,7 +233,10 @@ fn main() {
         }else {number_one_way_coastlines += 1;  }
     });
     println!("+ {} coastlines merged out of a single way", number_one_way_coastlines);
+
+
 }
+
 
 struct Coastline {
     nodes: Vec<i64>,
@@ -271,16 +249,59 @@ struct WayNodePair {
     node: i64,
 }
 
-enum MapOrPair {
-    Map(HashMap<i64, Vec<WayNodePair>>),
-    Entries(Vec<(i64, WayNodePair)>)
+enum MapOrEntry<T>{
+    Map(HashMap<i64, Vec<T>>),
+    Entries(Vec<(i64, T)>)
 }
 
-impl MapOrPair {
-    fn unwrapMap(self) -> HashMap<i64, Vec<WayNodePair>> {
+    fn combineT<T>(a: MapOrEntry<T>, b: MapOrEntry<T>) -> MapOrEntry<T>{
+        match (a, b) {
+            (MapOrEntry::Map(mut map_a), MapOrEntry::Map(map_b))=>{
+                map_a.extend(map_b);
+                return MapOrEntry::Map(map_a);
+            }
+            (MapOrEntry::Map(mut map), MapOrEntry::Entries(entries)) | (MapOrEntry::Entries(entries), MapOrEntry::Map(mut map)) =>{
+                entries.into_iter().for_each(|(key, entry)|{
+                    if map.contains_key(&key) {
+                        map.entry(key).and_modify(|e: &mut Vec<T>| { e.push(entry)});
+                    }else {
+                        map.insert(key,vec![entry]);
+                    }
+                });
+                return MapOrEntry::Map(map);
+            }
+            (MapOrEntry::Entries(entries_a), MapOrEntry::Entries(entries_b)) => {
+                let mut map = HashMap::new();
+                entries_a.into_iter().for_each(|(key, entry)|{
+                    if map.contains_key(&key){
+                        map.entry(key).and_modify(|e: &mut Vec<T>| e.push(entry));
+                    }else{
+                        map.insert(key,vec![entry]);
+                    }
+                });
+                entries_b.into_iter().for_each(|(key, entry)|{
+                    if map.contains_key(&key){
+                        map.entry(key).and_modify(|e: &mut Vec<T>| { e.push(entry)});
+                    }else{
+                        map.insert(key,vec![entry]);
+                    }
+
+                });
+                return MapOrEntry::Map(map);
+            }
+        }
+    }
+
+impl <T> MapOrEntry<T>{
+    fn unwrap_map(self) -> HashMap<i64, Vec<T>> {
         match self {
-            MapOrPair::Map(map) => map,
+            MapOrEntry::Map(map) => map,
             _ => panic!("expected map"),
         }
     }
+
+    fn combine<T1>(a: MapOrEntry<T1>, b: MapOrEntry<T1>) -> MapOrEntry<T1>{
+        return combineT(a, b);
+    }
 }
+
