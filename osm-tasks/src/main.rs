@@ -241,13 +241,13 @@ fn main() {
     }
     println!("Merge took {} seconds", start_time.elapsed().as_secs());
     let mut number_one_way_coastlines = 0u64;
-    
+
     merged_ways.iter().for_each(|e| {
         if e.ways.len() > 1 {
             println!("Coastline from way {} to {} merged out of {} ways", e.ways.front().unwrap(), e.ways.back().unwrap(), e.ways.len())
         } else { number_one_way_coastlines += 1; }
     });
-    println!("+ {} coastlines merged out of a single way", number_one_way_coastlines)
+    println!("+ {} coastlines merged out of a single way", number_one_way_coastlines);
 
 
 
