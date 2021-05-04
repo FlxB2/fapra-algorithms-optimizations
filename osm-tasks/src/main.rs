@@ -1,4 +1,4 @@
-use std::collections::{HashMap, LinkedList};
+use std::collections::{HashMap, LinkedList, HashSet};
 use std::time::Instant;
 
 use osmpbf::{Element, ElementReader};
@@ -17,11 +17,13 @@ fn main() {
     let mut merged_ways: LinkedList<Coastline> = LinkedList::new();
 
     let reader = ElementReader::from_path("./monaco-latest.osm.pbf").expect("failed");
+    //let reader = ElementReader::from_path("./iceland-latest.osm.pbf").expect("failed");
     //let reader = ElementReader::from_path("./iceland-coastlines.osm.pbf").expect("failed");
     //let reader = ElementReader::from_path("./sa-coastlines.osm.pbf").expect("failed");
     //let reader = ElementReader::from_path("./planet-coastlines.osm.pbf").expect("failed");
     // let mut ways = 0_u64;
     let mut coastlines = 0_u64;
+    println!("Started file reading");
     let (coastlines_map_wrapped, ways_to_nodes_map_wrapped, node_coordinates_map_wrapped) = reader.par_map_reduce(
         |element| {
             match element {
@@ -67,6 +69,9 @@ fn main() {
     let mut coastlines_map = coastlines_map_wrapped.unwrap_map();
     let ways_to_nodes_map = ways_to_nodes_map_wrapped.unwrap_map();
     let node_coordinate_map = node_coordinates_map_wrapped.unwrap_map();
+    println!("Finished file reading");
+
+
 // Increment the counter by one for each way.
     /*reader.for_each(|element| {
         if let Element::Way(way) = element {
@@ -116,6 +121,8 @@ fn main() {
         }
     });
 
+    println!("Number of ways {}, Number of unique nodes {}", ways_to_nodes_map.len(), coastlines_map.len());
+
     let mut last_print_time = Instant::now();
     let start_time = Instant::now();
     while !coastlines_map.is_empty() {
@@ -131,6 +138,7 @@ fn main() {
         let mut bottom_way_coastline = first_pair.way;
         while !reached_unconnected_node_bottom || !reached_unconnected_node_top {
             // merge until reached unconnected nodes at both ends
+            // check if the current coastline is already a closed polygon
             if bottom_node_coastline == current_coastline.top_node {
                 // polygon closed
                 break;
@@ -176,8 +184,9 @@ fn main() {
                     println!("No entry in coastline map for top node {} of way {}", current_coastline.top_node, top_way_coastline);
                     reached_unconnected_node_top = true;
                 }
-                // check if the current coastline is already a closed polygon
+                continue;
             }
+            // check if the current coastline is already a closed polygon
             if bottom_node_coastline == current_coastline.top_node {
                 // polygon closed
                 break;
@@ -232,12 +241,14 @@ fn main() {
     }
     println!("Merge took {} seconds", start_time.elapsed().as_secs());
     let mut number_one_way_coastlines = 0u64;
+    
     merged_ways.iter().for_each(|e| {
         if e.ways.len() > 1 {
             println!("Coastline from way {} to {} merged out of {} ways", e.ways.front().unwrap(), e.ways.back().unwrap(), e.ways.len())
         } else { number_one_way_coastlines += 1; }
     });
-    println!("+ {} coastlines merged out of a single way", number_one_way_coastlines);
+    println!("+ {} coastlines merged out of a single way", number_one_way_coastlines)
+
 
 
     let polygons: Vec<Vec<(f64, f64)>> = merged_ways.into_iter().par_bridge().map(|mut coastline| {
@@ -327,43 +338,6 @@ enum MapOrEntry<T> {
     Entries(Vec<(i64, T)>),
 }
 
-fn combineT<T>(a: MapOrEntry<T>, b: MapOrEntry<T>) -> MapOrEntry<T> {
-    match (a, b) {
-        (MapOrEntry::Map(mut map_a), MapOrEntry::Map(map_b)) => {
-            map_a.extend(map_b);
-            return MapOrEntry::Map(map_a);
-        }
-        (MapOrEntry::Map(mut map), MapOrEntry::Entries(entries)) | (MapOrEntry::Entries(entries), MapOrEntry::Map(mut map)) => {
-            entries.into_iter().for_each(|(key, entry)| {
-                if map.contains_key(&key) {
-                    map.entry(key).and_modify(|e: &mut Vec<T>| { e.push(entry) });
-                } else {
-                    map.insert(key, vec![entry]);
-                }
-            });
-            return MapOrEntry::Map(map);
-        }
-        (MapOrEntry::Entries(entries_a), MapOrEntry::Entries(entries_b)) => {
-            let mut map = HashMap::new();
-            entries_a.into_iter().for_each(|(key, entry)| {
-                if map.contains_key(&key) {
-                    map.entry(key).and_modify(|e: &mut Vec<T>| e.push(entry));
-                } else {
-                    map.insert(key, vec![entry]);
-                }
-            });
-            entries_b.into_iter().for_each(|(key, entry)| {
-                if map.contains_key(&key) {
-                    map.entry(key).and_modify(|e: &mut Vec<T>| { e.push(entry) });
-                } else {
-                    map.insert(key, vec![entry]);
-                }
-            });
-            return MapOrEntry::Map(map);
-        }
-    }
-}
-
 impl<T> MapOrEntry<T> {
     fn unwrap_map(self) -> HashMap<i64, Vec<T>> {
         match self {
@@ -372,8 +346,40 @@ impl<T> MapOrEntry<T> {
         }
     }
 
+    fn insert_or_update_entry<T1>(map: &mut HashMap<i64, Vec<T1>>, key: i64, entry: T1){
+        if let Some(value) = map.get_mut(&key){
+            value.push(entry);
+        } else {
+            map.insert(key, vec![entry]);
+        }
+    }
+    fn insert_or_update_entries<T1>(map: &mut HashMap<i64, Vec<T1>>, key: i64, entries: &mut Vec<T1>){
+        if let Some(value) = map.get_mut(&key){
+            value.append(entries);
+        } else {
+            let mut new_vec = Vec::with_capacity(entries.len());
+            new_vec.append(entries);
+            map.insert(key, new_vec);
+        }
+    }
+
     fn combine<T1>(a: MapOrEntry<T1>, b: MapOrEntry<T1>) -> MapOrEntry<T1> {
-        return combineT(a, b);
+        match (a, b) {
+            (MapOrEntry::Map(mut map_a), MapOrEntry::Map(map_b)) => {
+                map_b.into_iter().for_each(|(k, mut v)|MapOrEntry::<T1>::insert_or_update_entries(&mut map_a, k, &mut v));
+                return MapOrEntry::Map(map_a);
+            }
+            (MapOrEntry::Map(mut map), MapOrEntry::Entries(entries)) | (MapOrEntry::Entries(entries), MapOrEntry::Map(mut map)) => {
+                entries.into_iter().for_each(|(key, entry)| MapOrEntry::<T1>::insert_or_update_entry(&mut map, key, entry));
+                return MapOrEntry::Map(map);
+            }
+            (MapOrEntry::Entries(entries_a), MapOrEntry::Entries(entries_b)) => {
+                let mut map = HashMap::new();
+                entries_a.into_iter().for_each(|(key, entry)| MapOrEntry::<T1>::insert_or_update_entry(&mut map, key, entry));
+                entries_b.into_iter().for_each(|(key, entry)| MapOrEntry::<T1>::insert_or_update_entry(&mut map, key, entry));
+                return MapOrEntry::Map(map);
+            }
+        }
     }
 }
 
