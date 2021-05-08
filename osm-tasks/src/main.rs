@@ -1,3 +1,4 @@
+use std::cmp::{max, min};
 use std::collections::{HashMap, LinkedList, HashSet};
 use std::time::Instant;
 
@@ -145,7 +146,6 @@ fn main() {
     println!("+ {} coastlines merged out of a single way", number_one_way_coastlines);
 
 
-
     let polygons: Vec<Vec<(f64, f64)>> = merged_ways.into_iter().par_bridge().map(|mut coastline| {
         let mut coastline_nodes = coastline.nodes;
         coastline_nodes.extend(first_node_to_nodes_map.get(&coastline.ways.pop_front().unwrap()).unwrap());
@@ -198,6 +198,53 @@ fn polygon_geojson_string(coords: &Vec<(f64, f64)>) -> String{
         ]
       }}
      }}", coords_string)
+}
+
+struct PointInPolygonTest {
+    bounding_boxes: Vec<(f64, f64, f64, f64)>,
+    polygons: Vec<Vec<(f64, f64)>>,
+}
+
+impl PointInPolygonTest {
+    fn new(polygons: Vec<Vec<(f64, f64)>>) -> PointInPolygonTest {
+        let bounding_boxes: Vec<(f64, f64, f64, f64)> = polygons.iter().map(|polygon| PointInPolygonTest::calculate_bounding_box(polygon)).collect();
+        return PointInPolygonTest { bounding_boxes, polygons };
+    }
+
+    fn calculate_bounding_box(polygon: &Vec<(f64, f64)>) -> (f64, f64, f64, f64) {
+        let mut lon_min = 180_f64;
+        let mut lon_max = -180_f64;
+        let mut lat_min = 180_f64;
+        let mut lat_max = -180_f64;
+        for (lon, lat) in polygon {
+            lon_min = min(lon_min, *lon);
+            lon_max = max(lon_max, *lon);
+            lat_min = min(lat_min, *lat);
+            lat_max = max(lat_max, *lat);
+        }
+        (lon_min, lon_max, lat_min, lat_max)
+    }
+
+    fn check_intersecting_bounding_boxes(&self, (lon, lat): (f64, f64)) -> Vec<u32> {
+        self.bounding_boxes.iter().enumerate().filter_map(|(idx, (lon_min, lon_max, lat_min, lat_max))| {
+            if lon >= *lon_min && lon <= *lon_max && lat >= *lat_min && lat <= *lat_max {
+                Some(idx)
+            }
+            None
+        }).collect()
+    }
+
+    fn check_point_in_polygons(&self, point: (f64, f64), polygon_indices: Vec<u32>) -> bool {
+        // TODO: implement test
+        return false;
+    }
+
+    fn check_intersection(&self, point: (f64, f64)) -> bool {
+        // first get all intersecting bounding boxes
+        let polygons_to_check = self.check_intersecting_bounding_boxes(point.clone());
+        // check these polygons with point in polygon test
+        self.check_point_in_polygons(point, polygons_to_check)
+    }
 }
 
 #[derive(Copy, Clone)]
