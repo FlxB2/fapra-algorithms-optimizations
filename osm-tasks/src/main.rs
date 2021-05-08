@@ -1,4 +1,3 @@
-use std::cmp::{max, min};
 use std::collections::{HashMap, LinkedList, HashSet};
 use std::time::Instant;
 
@@ -17,9 +16,9 @@ fn main() {
     let mut number_merged_nodes = 0_u64;
     let mut merged_ways: LinkedList<Coastline> = LinkedList::new();
 
-    let reader = ElementReader::from_path("./monaco-latest.osm.pbf").expect("failed");
+    //let reader = ElementReader::from_path("./monaco-latest.osm.pbf").expect("failed");
     //let reader = ElementReader::from_path("./iceland-latest.osm.pbf").expect("failed");
-    //let reader = ElementReader::from_path("./iceland-coastlines.osm.pbf").expect("failed");
+    let reader = ElementReader::from_path("./iceland-coastlines.osm.pbf").expect("failed");
     //let reader = ElementReader::from_path("./sa-coastlines.osm.pbf").expect("failed");
     //let reader = ElementReader::from_path("./planet-coastlines.osm.pbf").expect("failed");
     // let mut ways = 0_u64;
@@ -183,6 +182,10 @@ fn main() {
 
     println!("{} out of {} polygons are closed", closed_polygons.len(), count_all_polygons);
 
+    let point_test = PointInPolygonTest::new(closed_polygons);
+    let point_to_test = (64.97414701038572, -19.168936046854252);
+    println!("Check point in polygons: ({}, {}) is in polygons: {}", point_to_test.0, point_to_test.1, point_test.check_intersection(point_to_test));
+
     println!("total time: {} sec", main_start_time.elapsed().as_secs());
 }
 
@@ -211,31 +214,51 @@ impl PointInPolygonTest {
         return PointInPolygonTest { bounding_boxes, polygons };
     }
 
+    fn check_point_between_edges(point_lon: &f64, (e1_lon, e1_lat): &(f64,f64), (e2_lon, e2_lat): &(f64,f64)) -> bool{
+        let intersection_lat = e1_lat+((e2_lat-e1_lat)/(e2_lon-e1_lon))*(point_lon-e1_lon);
+        f64::min(*e1_lat, *e2_lat) <= intersection_lat && intersection_lat <= f64::max(*e1_lat, *e2_lat)
+    }
+
     fn calculate_bounding_box(polygon: &Vec<(f64, f64)>) -> (f64, f64, f64, f64) {
         let mut lon_min = 180_f64;
         let mut lon_max = -180_f64;
         let mut lat_min = 180_f64;
         let mut lat_max = -180_f64;
         for (lon, lat) in polygon {
-            lon_min = min(lon_min, *lon);
-            lon_max = max(lon_max, *lon);
-            lat_min = min(lat_min, *lat);
-            lat_max = max(lat_max, *lat);
+            lon_min = f64::min(lon_min, *lon);
+            lon_max = f64::max(lon_max, *lon);
+            lat_min = f64::min(lat_min, *lat);
+            lat_max = f64::max(lat_max, *lat);
         }
         (lon_min, lon_max, lat_min, lat_max)
     }
 
-    fn check_intersecting_bounding_boxes(&self, (lon, lat): (f64, f64)) -> Vec<u32> {
-        self.bounding_boxes.iter().enumerate().filter_map(|(idx, (lon_min, lon_max, lat_min, lat_max))| {
+    fn check_intersecting_bounding_boxes(&self, (lon, lat): (f64, f64)) -> Vec<usize> {
+        let mut matching_polygons: Vec<usize> = Vec::with_capacity(self.polygons.len());
+        self.bounding_boxes.iter().enumerate().map(|(idx, (lon_min, lon_max, lat_min, lat_max))| {
             if lon >= *lon_min && lon <= *lon_max && lat >= *lat_min && lat <= *lat_max {
-                Some(idx)
+                matching_polygons.push(idx);
             }
-            None
-        }).collect()
+        });
+        matching_polygons.shrink_to_fit();
+        return matching_polygons;
     }
 
-    fn check_point_in_polygons(&self, point: (f64, f64), polygon_indices: Vec<u32>) -> bool {
+    fn check_point_in_polygons(&self, (point_lon, point_lat): (f64, f64), polygon_indices: Vec<usize>) -> bool {
         // TODO: implement test
+        let mut intersection_count_even = true;
+        for polygon_idx in polygon_indices{
+            let polygon = &self.polygons[polygon_idx];
+            for i in 0..self.polygons.len()-1 {
+                // Todo handle intersection with the nodes as special case
+                if PointInPolygonTest::check_point_between_edges(&point_lon, &polygon[i], &polygon[i+1]) {
+                    intersection_count_even != intersection_count_even;
+                }
+            }
+            if !intersection_count_even {
+                return true;
+            }
+        }
         return false;
     }
 
