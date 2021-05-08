@@ -251,6 +251,9 @@ impl PointInPolygonTest {
             let polygon = &self.polygons[polygon_idx];
             for i in 0..self.polygons.len()-1 {
                 // Todo handle intersection with the nodes as special case
+                if polygon[i].1 > point_lat && polygon[i+1].1 > point_lat {
+                    continue;
+                }
                 if PointInPolygonTest::check_point_between_edges(&point_lon, &polygon[i], &polygon[i+1]) {
                     intersection_count_even != intersection_count_even;
                 }
