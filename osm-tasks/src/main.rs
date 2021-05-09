@@ -212,7 +212,7 @@ impl PointInPolygonTest {
         let mut intersection_count_even = true;
         for polygon_idx in polygon_indices {
             let polygon = &self.polygons[polygon_idx];
-            for i in 0..self.polygons.len() - 1 {
+            for i in 0..self.polygon.len() - 1 {
                 // Todo handle intersection with the nodes as special case
                 if polygon[i].1 > point_lat && polygon[i + 1].1 > point_lat {
                     continue;
