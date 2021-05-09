@@ -8,7 +8,7 @@ pub struct JsonFile {
 
 impl JsonFile {
     pub fn to_string(&self) -> String {
-        let mut result = String::new() +      "  { \"type\": \"FeatureCollection\",
+        let mut result = String::new() + "  { \"type\": \"FeatureCollection\",
             \"features\": [";
         for polygon in &self.polygons {
             if polygon.len() > 1 {

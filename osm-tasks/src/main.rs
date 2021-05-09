@@ -1,12 +1,13 @@
-mod json_generator;
-
 use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
+use std::slice::Iter;
 use std::time::Instant;
 
 use osmpbf::{Element, ElementReader};
-use crate::json_generator::{JsonBuilder};
-use std::iter::FromIterator;
-use std::slice::Iter;
+
+use crate::json_generator::JsonBuilder;
+
+mod json_generator;
 
 fn main() {
     read_file("./monaco-latest.osm.pbf");
@@ -48,7 +49,7 @@ fn read_file(path: &str) {
 
     let polygons: Vec<Vec<(f64, f64)>> = merge_ways_to_polygons1(coastlines, node_to_location);
 
-    println!("Merged polygons coastlines to {} polygons in {} sec",polygons.len(), start_time.elapsed().as_secs());
+    println!("Merged polygons coastlines to {} polygons in {} sec", polygons.len(), start_time.elapsed().as_secs());
     check_polygons_closed(&polygons);
 
     let file = "poly";
@@ -58,7 +59,6 @@ fn read_file(path: &str) {
     let point_test = PointInPolygonTest::new(vec![]);
     let point_to_test = (-19.168936046854252, 64.97414701038572);
     println!("Check point in polygons: ({}, {}) is in polygons: {}", point_to_test.0, point_to_test.1, point_test.check_intersection(point_to_test));
-
 }
 
 fn merge_ways_to_polygons1(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_location: HashMap<i64, (f64, f64)>) -> Vec<Vec<(f64, f64)>> {
@@ -100,22 +100,22 @@ fn merge_ways_to_polygons1(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_lo
 }
 
 fn merge_ways_to_polygons2(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_location: HashMap<i64, (f64, f64)>) -> Vec<Vec<(f64, f64)>> {
-    let mut unprocessed_coastlines : HashSet<&i64> = HashSet::from_iter(coastlines.keys());
-    let mut polygons : Vec<Vec<(f64,f64)>> = vec![];
+    let mut unprocessed_coastlines: HashSet<&i64> = HashSet::from_iter(coastlines.keys());
+    let mut polygons: Vec<Vec<(f64, f64)>> = vec![];
 
     while !unprocessed_coastlines.is_empty() {
         let first_node = **unprocessed_coastlines.iter().next().expect("Coastline already processed");
         let (mut next_node, nodes) = coastlines.get(&first_node).expect("coastline not found in map");
         unprocessed_coastlines.remove(&first_node);
 
-        let mut polygon :Vec<(f64,f64)> = Vec::with_capacity(nodes.len());
+        let mut polygon: Vec<(f64, f64)> = Vec::with_capacity(nodes.len());
         append_coords_from_map_for_nodes(&node_to_location, &mut polygon, &mut nodes.iter());
         while next_node != first_node {
             reserve_space_if_below_threshold(&mut polygon, 2000, 5000);
-            if let Some((next_next_node, nodes)) = coastlines.get(&next_node){
+            if let Some((next_next_node, nodes)) = coastlines.get(&next_node) {
                 append_coords_from_map_for_nodes(&node_to_location, &mut polygon, &mut nodes[1..].iter());
                 next_node = *next_next_node;
-            }else{
+            } else {
                 println!("Could not find next node {}", next_node);
                 break;
             }
@@ -129,7 +129,7 @@ fn merge_ways_to_polygons2(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_lo
 }
 
 #[inline]
-fn append_coords_from_map_for_nodes(node_to_location: &HashMap<i64, (f64, f64)>, polygon: &mut Vec<(f64,f64)>, nodes: &mut Iter<i64>) {
+fn append_coords_from_map_for_nodes(node_to_location: &HashMap<i64, (f64, f64)>, polygon: &mut Vec<(f64, f64)>, nodes: &mut Iter<i64>) {
     nodes.for_each(|node_id| {
         if let Some(coord) = node_to_location.get(node_id) {
             polygon.push(*coord);
@@ -143,25 +143,24 @@ fn append_coords_from_map_for_nodes(node_to_location: &HashMap<i64, (f64, f64)>,
 #[inline]
 // use this function to check periodically if the capacity of a vector is below a limit
 // to avoid expensive memory allocation at every insert operation
-fn reserve_space_if_below_threshold<T>(vector: &mut Vec<T>, minimum_size: usize, reserved_size: usize){
+fn reserve_space_if_below_threshold<T>(vector: &mut Vec<T>, minimum_size: usize, reserved_size: usize) {
     if vector.capacity() < minimum_size {
         vector.reserve(reserved_size);
     }
 }
 
-fn check_polygons_closed(polygons: &Vec<Vec<(f64,f64)>>) -> bool {
+fn check_polygons_closed(polygons: &Vec<Vec<(f64, f64)>>) -> bool {
     let polygon_count = polygons.len();
     let closed_polygons_count = polygons.iter().filter(|polygon| !polygon.is_empty() && polygon.first() == polygon.last()).count();
-    println!("{} of {} polygons are closed", closed_polygons_count, polygon_count );
+    println!("{} of {} polygons are closed", closed_polygons_count, polygon_count);
     polygon_count == closed_polygons_count
 }
 
-    //let reader = ElementReader::from_path("./monaco-latest.osm.pbf").expect("failed");
-    //let reader = ElementReader::from_path("./iceland-latest.osm.pbf").expect("failed");
-    //let reader = ElementReader::from_path("./iceland-coastlines.osm.pbf").expect("failed");
-    //let reader = ElementReader::from_path("./sa-coastlines.osm.pbf").expect("failed");
-    //let reader = ElementReader::from_path("./planet-coastlines.osm.pbf").expect("failed");
-
+//let reader = ElementReader::from_path("./monaco-latest.osm.pbf").expect("failed");
+//let reader = ElementReader::from_path("./iceland-latest.osm.pbf").expect("failed");
+//let reader = ElementReader::from_path("./iceland-coastlines.osm.pbf").expect("failed");
+//let reader = ElementReader::from_path("./sa-coastlines.osm.pbf").expect("failed");
+//let reader = ElementReader::from_path("./planet-coastlines.osm.pbf").expect("failed");
 
 
 struct PointInPolygonTest {
@@ -176,8 +175,8 @@ impl PointInPolygonTest {
         return PointInPolygonTest { bounding_boxes, polygons };
     }
 
-    fn check_point_between_edges(point_lon: &f64, (e1_lon, e1_lat): &(f64,f64), (e2_lon, e2_lat): &(f64,f64)) -> bool{
-        let intersection_lat = e1_lat+((e2_lat-e1_lat)/(e2_lon-e1_lon))*(point_lon-e1_lon);
+    fn check_point_between_edges(point_lon: &f64, (e1_lon, e1_lat): &(f64, f64), (e2_lon, e2_lat): &(f64, f64)) -> bool {
+        let intersection_lat = e1_lat + ((e2_lat - e1_lat) / (e2_lon - e1_lon)) * (point_lon - e1_lon);
         f64::min(*e1_lat, *e2_lat) <= intersection_lat && intersection_lat <= f64::max(*e1_lat, *e2_lat)
     }
 
@@ -211,14 +210,14 @@ impl PointInPolygonTest {
     fn check_point_in_polygons(&self, (point_lon, point_lat): (f64, f64), polygon_indices: Vec<usize>) -> bool {
         // TODO: implement test
         let mut intersection_count_even = true;
-        for polygon_idx in polygon_indices{
+        for polygon_idx in polygon_indices {
             let polygon = &self.polygons[polygon_idx];
-            for i in 0..self.polygons.len()-1 {
+            for i in 0..self.polygons.len() - 1 {
                 // Todo handle intersection with the nodes as special case
-                if polygon[i].1 > point_lat && polygon[i+1].1 > point_lat {
+                if polygon[i].1 > point_lat && polygon[i + 1].1 > point_lat {
                     continue;
                 }
-                if PointInPolygonTest::check_point_between_edges(&point_lon, &polygon[i], &polygon[i+1]) {
+                if PointInPolygonTest::check_point_between_edges(&point_lon, &polygon[i], &polygon[i + 1]) {
                     intersection_count_even = !intersection_count_even;
                     println!("Intersection")
                 }
