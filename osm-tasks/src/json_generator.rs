@@ -8,11 +8,16 @@ pub struct JsonFile {
 
 impl JsonFile {
     pub fn to_string(&self) -> String {
-        let mut result = String::new();
-
+        let mut result = String::new() +      "  { \"type\": \"FeatureCollection\",
+            \"features\": [";
         for polygon in &self.polygons {
-            let mut coords_string = format!("{:?}", polygon).replace("(", "[").replace(")", "]");
-            coords_string = format!("{{
+            if polygon.len() > 1 {
+                // ensure first equals last ndoe
+                let mut temp = polygon.to_vec();
+                temp.push(*polygon.first().unwrap());
+
+                let mut coords_string = format!("{:?}", temp).replace("(", "[").replace(")", "]");
+                coords_string = format!("{{
               \"type\": \"Feature\",
               \"properties\": {{}},
               \"geometry\": {{
@@ -21,10 +26,11 @@ impl JsonFile {
                     {}
                 ]
               }}
-             }}", coords_string);
-            result = result + &*coords_string;
+             }},", coords_string);
+                result = result + &*coords_string;
+            }
         }
-
+        result = result + "]}";
         result
     }
 }

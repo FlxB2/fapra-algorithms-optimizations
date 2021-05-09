@@ -28,22 +28,18 @@ fn read_file(path: &str) {
     reader.for_each(|item| {
         match item {
             Element::Way(way) => {
-                if let Some(_) = way.tags().find(|(k,v)| *k == "natural" && *v == "coastline"){
+                if let Some(_) = way.tags().find(|(k, v)| *k == "natural" && *v == "coastline") {
                     let first_node_id = way.refs().next().expect("way does not contain any nodes");
                     if let Some(last) = way.refs().last() {
-                        coastlines.insert(first_node_id, (last, way.raw_refs().to_owned()));
+                        coastlines.insert(first_node_id, (last, way.refs().collect()));
                     }
                 }
             }
             Element::Node(node) => {
-                if !node_to_location.contains_key(&node.id()){
-                    node_to_location.insert(node.id(), (node.lon(), node.lat()));
-                }
+                node_to_location.insert(node.id(), (node.lon(), node.lat()));
             }
             Element::DenseNode(node) => {
-                if !node_to_location.contains_key(&node.id()){
-                    node_to_location.insert(node.id(), (node.lon(), node.lat()));
-                }
+                node_to_location.insert(node.id(), (node.lon(), node.lat()));
             }
             _ => {}
         }
@@ -88,6 +84,8 @@ fn merge_ways_to_polygons1(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_lo
                 for node in way {
                     if let Some((lat, lon)) = node_to_location.get(node) {
                         poly.push((*lat, *lon));
+                    } else {
+                        print!("could not find node")
                     }
                 }
                 visited.insert(*start, true);
