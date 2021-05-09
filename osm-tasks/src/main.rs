@@ -111,6 +111,7 @@ fn merge_ways_to_polygons2(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_lo
         let mut polygon: Vec<(f64, f64)> = Vec::with_capacity(nodes.len());
         append_coords_from_map_for_nodes(&node_to_location, &mut polygon, &mut nodes.iter());
         while next_node != first_node {
+            unprocessed_coastlines.remove(&next_node);
             reserve_space_if_below_threshold(&mut polygon, 2000, 5000);
             if let Some((next_next_node, nodes)) = coastlines.get(&next_node) {
                 append_coords_from_map_for_nodes(&node_to_location, &mut polygon, &mut nodes[1..].iter());
