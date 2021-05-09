@@ -10,7 +10,9 @@ use crate::json_generator::JsonBuilder;
 mod json_generator;
 
 fn main() {
-    read_file("./monaco-latest.osm.pbf");
+    //read_file("./monaco-latest.osm.pbf");
+    //read_file("./iceland-coastlines.osm.pbf");
+    read_file("./planet-coastlines.osm.pbf");
 }
 
 fn read_file(path: &str) {
@@ -47,16 +49,19 @@ fn read_file(path: &str) {
     });
     println!("Reading done");
 
-    let polygons: Vec<Vec<(f64, f64)>> = merge_ways_to_polygons1(coastlines, node_to_location);
+    let mut polygons: Vec<Vec<(f64, f64)>> = merge_ways_to_polygons1(coastlines, node_to_location);
 
     println!("Merged polygons coastlines to {} polygons in {} sec", polygons.len(), start_time.elapsed().as_secs());
     check_polygons_closed(&polygons);
 
-    let file = "poly";
-    JsonBuilder::new(String::from(file)).add_polygons(polygons).build();
-    println!("Generated json");
+    //let file = "poly";
+    //JsonBuilder::new(String::from(file)).add_polygons(polygons).build();
+    //println!("Generated json");
 
-    let point_test = PointInPolygonTest::new(vec![]);
+    // sort polygons by size so that we check the bigger before the smaller ones
+    polygons.sort_by(|a,b| b.len().cmp(&a.len()));
+
+    let point_test = PointInPolygonTest::new(polygons);
     let point_to_test = (-19.168936046854252, 64.97414701038572);
     println!("Check point in polygons: ({}, {}) is in polygons: {}", point_to_test.0, point_to_test.1, point_test.check_intersection(point_to_test));
 }
@@ -69,32 +74,37 @@ fn merge_ways_to_polygons1(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_lo
     }
 
     for key in coastlines.keys() {
+        if *visited.get(key).unwrap_or(&true) {
+            continue;
+        }
         let mut start = key;
         let mut poly: Vec<(f64, f64)> = Vec::new();
 
         loop {
-            if let Some(visit) = visited.get(start) {
-                if *visit == true {
-                    break;
-                }
-            }
-
             if let Some((end, way)) = coastlines.get(start) {
                 // add way to polygon
                 for node in way {
                     if let Some((lat, lon)) = node_to_location.get(node) {
                         poly.push((*lat, *lon));
                     } else {
-                        print!("could not find node")
+                        print!("could not find coords for node {}", node)
                     }
                 }
                 visited.insert(*start, true);
                 start = end;
             } else {
+                println!("Could not find node {} in coastlines map", start);
                 break;
             }
+            if let Some(visit) = visited.get(start) {
+                if *visit == true {
+                    polygons.push(poly);
+                    break;
+                }
+            } else {
+                println!("Could not find node {} in visited map", start);
+            }
         }
-        polygons.push(poly);
     }
     return polygons;
 }
@@ -156,11 +166,6 @@ fn check_polygons_closed(polygons: &Vec<Vec<(f64, f64)>>) -> bool {
     polygon_count == closed_polygons_count
 }
 
-//let reader = ElementReader::from_path("./monaco-latest.osm.pbf").expect("failed");
-//let reader = ElementReader::from_path("./iceland-latest.osm.pbf").expect("failed");
-//let reader = ElementReader::from_path("./iceland-coastlines.osm.pbf").expect("failed");
-//let reader = ElementReader::from_path("./sa-coastlines.osm.pbf").expect("failed");
-//let reader = ElementReader::from_path("./planet-coastlines.osm.pbf").expect("failed");
 
 
 struct PointInPolygonTest {
@@ -209,20 +214,19 @@ impl PointInPolygonTest {
 
     fn check_point_in_polygons(&self, (point_lon, point_lat): (f64, f64), polygon_indices: Vec<usize>) -> bool {
         // TODO: implement test
-        let mut intersection_count_even = true;
         for polygon_idx in polygon_indices {
+            let mut intersection_count_even = true;
             let polygon = &self.polygons[polygon_idx];
-            for i in 0..self.polygon.len() - 1 {
+            for i in 0..polygon.len() - 1 {
                 // Todo handle intersection with the nodes as special case
                 if polygon[i].1 > point_lat && polygon[i + 1].1 > point_lat {
                     continue;
                 }
                 if PointInPolygonTest::check_point_between_edges(&point_lon, &polygon[i], &polygon[i + 1]) {
                     intersection_count_even = !intersection_count_even;
-                    println!("Intersection")
                 }
             }
-            if !intersection_count_even {
+            if intersection_count_even {
                 return true;
             }
         }
