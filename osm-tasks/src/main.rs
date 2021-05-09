@@ -30,22 +30,18 @@ fn read_file(mut path: &str) {
     reader.for_each(|item| {
         match item {
             Element::Way(way) => {
-                if let Some(_) = way.tags().find(|(k,v)| *k == "natural" && *v == "coastline"){
+                if let Some(_) = way.tags().find(|(k, v)| *k == "natural" && *v == "coastline") {
                     let first_node_id = way.refs().next().expect("way does not contain any nodes");
                     if let Some(last) = way.refs().last() {
-                        coastlines.insert(first_node_id, (last, way.raw_refs().to_owned()));
+                        coastlines.insert(first_node_id, (last, way.refs().collect()));
                     }
                 }
             }
             Element::Node(node) => {
-                if !node_to_location.contains_key(&node.id()){
-                    node_to_location.insert(node.id(), (node.lon(), node.lat()));
-                }
+                node_to_location.insert(node.id(), (node.lon(), node.lat()));
             }
             Element::DenseNode(node) => {
-                if !node_to_location.contains_key(&node.id()){
-                    node_to_location.insert(node.id(), (node.lon(), node.lat()));
-                }
+                node_to_location.insert(node.id(), (node.lon(), node.lat()));
             }
             _ => {}
         }
@@ -73,6 +69,8 @@ fn read_file(mut path: &str) {
                 for node in way {
                     if let Some((lat, lon)) = node_to_location.get(node) {
                         poly.push((*lat, *lon));
+                    } else {
+                        print!("could not find node")
                     }
                 }
                 visited.insert(*start, true);
@@ -106,20 +104,19 @@ fn old() {
         |element| {
             match element {
                 Element::Way(way) => {
-                    if let Some(_) = way.tags().find(|(k,v)| *k == "natural" && *v == "coastline"){
-                            let nodes: Vec<i64> = way.refs().collect();
-                            if nodes.len() <= 1 {
-                                // Way with a single node does not give as any information -> discard
-                                println!("Discarded way with only zero or one nodes: {}", way.id());
-                            }else if let Some(first_node) = nodes.first() {
-                                if let Some(last_node) = nodes.last() {
-                                        return (MapOrEntry::Entry(*first_node,  *last_node),
-                                                MapOrEntry::Entry(*first_node, nodes),
-                                                MapOrEntry::NeutralElement());
-                                }
+                    if let Some(_) = way.tags().find(|(k, v)| *k == "natural" && *v == "coastline") {
+                        let nodes: Vec<i64> = way.refs().collect();
+                        if nodes.len() <= 1 {
+                            // Way with a single node does not give as any information -> discard
+                            println!("Discarded way with only zero or one nodes: {}", way.id());
+                        } else if let Some(first_node) = nodes.first() {
+                            if let Some(last_node) = nodes.last() {
+                                return (MapOrEntry::Entry(*first_node, *last_node),
+                                        MapOrEntry::Entry(*first_node, nodes),
+                                        MapOrEntry::NeutralElement());
                             }
                         }
-
+                    }
                 }
                 Element::Node(node) => return (MapOrEntry::NeutralElement(), MapOrEntry::NeutralElement(), MapOrEntry::Entry(node.id(), (node.lon(), node.lat()))),
                 Element::DenseNode(node) => return (MapOrEntry::NeutralElement(), MapOrEntry::NeutralElement(), MapOrEntry::Entry(node.id(), (node.lon(), node.lat()))),
@@ -159,10 +156,10 @@ fn old() {
         let mut current_coastline = Coastline { nodes: vec![], ways: list };
 
         while next_node != first_node {
-            if let Some(next_next_node) = coastlines_map.remove(&next_node){
+            if let Some(next_next_node) = coastlines_map.remove(&next_node) {
                 current_coastline.ways.push_back(next_node);
                 next_node = next_next_node;
-            }else{
+            } else {
                 println!("Could not find next node {}", next_node);
                 break;
             }
@@ -170,7 +167,7 @@ fn old() {
         if next_node == first_node {
             //println!("Finished looped coastline with start node {}", first_node);
         } else {
-            println!("Finished partly coastline from {} to {} out of {} ways", first_node,next_node, current_coastline.ways.len());
+            println!("Finished partly coastline from {} to {} out of {} ways", first_node, next_node, current_coastline.ways.len());
         }
         merged_ways.push_back(current_coastline);
     }
@@ -183,7 +180,6 @@ fn old() {
         } else { number_one_way_coastlines += 1; }
     });
     println!("+ {} coastlines merged out of a single way", number_one_way_coastlines);
-
 
 
     let polygons: Vec<Vec<(f64, f64)>> = merged_ways.into_iter().par_bridge().map(|mut coastline| {
@@ -210,8 +206,8 @@ fn old() {
     let count_all_polygons = polygons.len();
 
     // filter for closed polygons since the others are more a line than a real polygon
-    let mut closed_polygons: Vec<Vec<(f64, f64)>>= polygons;
-    closed_polygons.sort_by(|a,b| b.len().cmp(&a.len()));
+    let mut closed_polygons: Vec<Vec<(f64, f64)>> = polygons;
+    closed_polygons.sort_by(|a, b| b.len().cmp(&a.len()));
     closed_polygons.iter().take(15).par_bridge().for_each(|e| {
         println!("Polygon out of {} coords", e.len());
     });
@@ -226,7 +222,7 @@ fn old() {
     println!("total time: {} sec", main_start_time.elapsed().as_secs());
 }
 
-fn polygon_geojson_string(coords: &Vec<(f64, f64)>) -> String{
+fn polygon_geojson_string(coords: &Vec<(f64, f64)>) -> String {
     let coords_string = format!("{:?}", coords).replace("(", "[").replace(")", "]");
     format!("{{
       \"type\": \"Feature\",
@@ -271,20 +267,20 @@ impl<T> MapOrEntry<T> {
                 map_a.extend(map_b);
                 MapOrEntry::Map(map_a)
             }
-            (MapOrEntry::Map(mut map), MapOrEntry::Entry(k,v)) | (MapOrEntry::Entry(k,v), MapOrEntry::Map(mut map)) => {
-                map.insert(k,v);
+            (MapOrEntry::Map(mut map), MapOrEntry::Entry(k, v)) | (MapOrEntry::Entry(k, v), MapOrEntry::Map(mut map)) => {
+                map.insert(k, v);
                 MapOrEntry::Map(map)
             }
-            (MapOrEntry::Entry(k1,v1), MapOrEntry::Entry(k2,v2)) => {
+            (MapOrEntry::Entry(k1, v1), MapOrEntry::Entry(k2, v2)) => {
                 let mut map = HashMap::new();
-                map.insert(k1,v1);
-                map.insert(k2,v2);
+                map.insert(k1, v1);
+                map.insert(k2, v2);
                 MapOrEntry::Map(map)
             }
             (MapOrEntry::Map(mut map), MapOrEntry::NeutralElement()) | (MapOrEntry::NeutralElement(), MapOrEntry::Map(mut map)) => MapOrEntry::Map(map),
-            (MapOrEntry::Entry(k,v), MapOrEntry::NeutralElement()) | (MapOrEntry::NeutralElement(), MapOrEntry::Entry(k, v)) => MapOrEntry::Entry(k, v),
+            (MapOrEntry::Entry(k, v), MapOrEntry::NeutralElement()) | (MapOrEntry::NeutralElement(), MapOrEntry::Entry(k, v)) => MapOrEntry::Entry(k, v),
             (MapOrEntry::NeutralElement(), MapOrEntry::NeutralElement()) => MapOrEntry::NeutralElement()
-        }
+        };
     }
 }
 
