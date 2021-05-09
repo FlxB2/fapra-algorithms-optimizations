@@ -181,9 +181,10 @@ fn main() {
     });
 
     println!("{} out of {} polygons are closed", closed_polygons.len(), count_all_polygons);
+    
 
     let point_test = PointInPolygonTest::new(closed_polygons);
-    let point_to_test = (64.97414701038572, -19.168936046854252);
+    let point_to_test = (-19.168936046854252, 64.97414701038572);
     println!("Check point in polygons: ({}, {}) is in polygons: {}", point_to_test.0, point_to_test.1, point_test.check_intersection(point_to_test));
 
     println!("total time: {} sec", main_start_time.elapsed().as_secs());
@@ -210,6 +211,7 @@ struct PointInPolygonTest {
 
 impl PointInPolygonTest {
     fn new(polygons: Vec<Vec<(f64, f64)>>) -> PointInPolygonTest {
+        println!("Polygon test instance with {} polygons", polygons.len());
         let bounding_boxes: Vec<(f64, f64, f64, f64)> = polygons.iter().map(|polygon| PointInPolygonTest::calculate_bounding_box(polygon)).collect();
         return PointInPolygonTest { bounding_boxes, polygons };
     }
@@ -230,14 +232,16 @@ impl PointInPolygonTest {
             lat_min = f64::min(lat_min, *lat);
             lat_max = f64::max(lat_max, *lat);
         }
+        println!("Bounding Box: ({},{}) to ({},{})", lon_min, lat_min, lon_max, lat_max);
         (lon_min, lon_max, lat_min, lat_max)
     }
 
     fn check_intersecting_bounding_boxes(&self, (lon, lat): (f64, f64)) -> Vec<usize> {
         let mut matching_polygons: Vec<usize> = Vec::with_capacity(self.polygons.len());
-        self.bounding_boxes.iter().enumerate().map(|(idx, (lon_min, lon_max, lat_min, lat_max))| {
+        self.bounding_boxes.iter().enumerate().for_each(|(idx, (lon_min, lon_max, lat_min, lat_max))| {
             if lon >= *lon_min && lon <= *lon_max && lat >= *lat_min && lat <= *lat_max {
                 matching_polygons.push(idx);
+                println!("Point ({},{}) is inside bounding box of polygon {}", lon, lat, idx);
             }
         });
         matching_polygons.shrink_to_fit();
@@ -255,7 +259,8 @@ impl PointInPolygonTest {
                     continue;
                 }
                 if PointInPolygonTest::check_point_between_edges(&point_lon, &polygon[i], &polygon[i+1]) {
-                    intersection_count_even != intersection_count_even;
+                    intersection_count_even = !intersection_count_even;
+                    println!("Intersection")
                 }
             }
             if !intersection_count_even {
