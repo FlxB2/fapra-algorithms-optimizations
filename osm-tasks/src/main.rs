@@ -1,9 +1,12 @@
 use std::collections::{HashMap, HashSet};
+use std::fs::File;
+use std::io::Write;
 use std::iter::FromIterator;
 use std::slice::Iter;
 use std::time::Instant;
 
 use osmpbf::{Element, ElementReader};
+use rand::distributions::{Distribution, Uniform};
 
 use crate::json_generator::JsonBuilder;
 
@@ -11,8 +14,8 @@ mod json_generator;
 
 fn main() {
     //read_file("./monaco-latest.osm.pbf");
-    //read_file("./iceland-coastlines.osm.pbf");
-    read_file("./planet-coastlines.osm.pbf");
+    read_file("./iceland-coastlines.osm.pbf");
+    //read_file("./planet-coastlines.osm.pbf");
 }
 
 fn read_file(path: &str) {
@@ -47,23 +50,93 @@ fn read_file(path: &str) {
             _ => {}
         }
     });
-    println!("Reading done");
-
+    println!("Reading done in {} sec", start_time.elapsed().as_secs());
+    let merge_start_time = Instant::now();
     let mut polygons: Vec<Vec<(f64, f64)>> = merge_ways_to_polygons1(coastlines, node_to_location);
 
-    println!("Merged polygons coastlines to {} polygons in {} sec", polygons.len(), start_time.elapsed().as_secs());
+    println!("Merged polygons coastlines to {} polygons in {} sec", polygons.len(), merge_start_time.elapsed().as_secs());
     check_polygons_closed(&polygons);
 
-    //let file = "poly";
-    //JsonBuilder::new(String::from(file)).add_polygons(polygons).build();
-    //println!("Generated json");
-
     // sort polygons by size so that we check the bigger before the smaller ones
-    polygons.sort_by(|a,b| b.len().cmp(&a.len()));
+    polygons.sort_by(|a, b| b.len().cmp(&a.len()));
+    /*
+    let file = "poly";
+    JsonBuilder::new(String::from(file)).add_polygons(polygons).build();
+    println!("Generated json");*/
 
-    let point_test = PointInPolygonTest::new(polygons);
-    let point_to_test = (-19.168936046854252, 64.97414701038572);
-    println!("Check point in polygons: ({}, {}) is in polygons: {}", point_to_test.0, point_to_test.1, point_test.check_intersection(point_to_test));
+    let point_test = PointInPolygonTest::new(vec![polygons[3].clone()]);
+    //let point_to_test = (-20.26368141174316, 63.44908972219714);
+    //println!("Check point in polygons: ({}, {}) is in polygons: {}", point_to_test.0, point_to_test.1, point_test.check_intersection(point_to_test.clone()));
+
+    //println!("idx {:?}", point_test.check_intersecting_bounding_boxes(point_to_test));
+    let lon_max = -20.161285400390625;
+    let lon_min = -20.388565063476562;
+    let lat_min = 63.38629304338259;
+    let lat_max = 63.46615737019882;
+
+    let points_in_polygon = test_random_points_in_polygon(&point_test, 10000, (lon_min, lon_max, lat_min, lat_max));
+    write_to_file("island".parse().unwrap(), points_to_json(points_in_polygon));
+}
+
+fn write_to_file(name: String, data: String) {
+    let mut file = File::create(name).expect("Could not open file");
+    file.write_all(data.as_ref()).expect("Could not write file");
+}
+
+fn points_to_json(points: Vec<(f64, f64)>) -> String {
+    let points_string = format!("{:?}", points).replace("(", "[").replace(")", "]\n");
+    let feature = format!("{{ \"type\": \"MultiPoint\",
+    \"coordinates\": {}
+}}", points_string);
+    format!("{{
+  \"type\": \"FeatureCollection\",
+  \"features\": [
+    {{
+      \"type\": \"Feature\",
+      \"properties\": {{}},
+      \"geometry\":  {} \
+    }}
+  ]
+}}", feature)
+}
+
+fn lines_to_json(lines: Vec<((f64, f64), (f64, f64))>) -> String {
+    let mut features = String::new();
+    for line in lines {
+        let geometry = format!("{{ \"type\": \"LineString\",
+    \"coordinates\": [[{},{}],[{},{}]]
+}}", line.0.0, line.0.1, line.1.0, line.1.1);
+        let feature = format!("{{
+      \"type\": \"Feature\",
+      \"properties\": {{}},
+      \"geometry\":  {} \
+    }}.\n", geometry);
+        features = features + &*feature;
+    }
+    features.pop();
+    format!("{{
+  \"type\": \"FeatureCollection\",
+  \"features\": [
+    {}
+  ]
+}}", features)
+}
+
+fn test_random_points_in_polygon(polygon_test: &PointInPolygonTest, number_of_points_to_test: usize, (lon_min, lon_max, lat_min, lat_max): (f64, f64, f64, f64)) -> Vec<(f64, f64)> {
+    let mut rng = rand::thread_rng();
+    let rng_lat = Uniform::from(lat_min..lat_max);
+    let rng_lon = Uniform::from(lon_min..lon_max);
+
+    let mut points_in_polygon: Vec<(f64, f64)> = Vec::new();
+
+    for i in 0..number_of_points_to_test {
+        let test_point: (f64, f64) = (rng_lon.sample(&mut rng), rng_lat.sample(&mut rng));
+        if polygon_test.check_intersection(test_point.clone()) {
+            points_in_polygon.push(test_point);
+        }
+    }
+
+    return points_in_polygon;
 }
 
 fn merge_ways_to_polygons1(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_location: HashMap<i64, (f64, f64)>) -> Vec<Vec<(f64, f64)>> {
@@ -78,12 +151,12 @@ fn merge_ways_to_polygons1(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_lo
             continue;
         }
         let mut start = key;
-        let mut poly: Vec<(f64, f64)> = Vec::new();
+        let mut poly: Vec<(f64, f64)> = vec![*node_to_location.get(start).expect("Could not find coords for start node")];
 
         loop {
             if let Some((end, way)) = coastlines.get(start) {
                 // add way to polygon
-                for node in way {
+                for node in way[1..].iter() {
                     if let Some((lat, lon)) = node_to_location.get(node) {
                         poly.push((*lat, *lon));
                     } else {
@@ -167,20 +240,38 @@ fn check_polygons_closed(polygons: &Vec<Vec<(f64, f64)>>) -> bool {
 }
 
 
-
 struct PointInPolygonTest {
     bounding_boxes: Vec<(f64, f64, f64, f64)>,
     polygons: Vec<Vec<(f64, f64)>>,
 }
 
+struct Point(f64, f64);
+
+impl Point {
+    fn new(lon: f64, lat: f64) -> Point {
+        Point(lat, lon)
+    }
+    fn from((lon, lat): &(f64, f64)) -> Point {
+        Point(*lat, *lon)
+    }
+
+    fn lat(&self) -> f64 { self.0 }
+    fn lon(&self) -> f64 { self.1 }
+}
+
 impl PointInPolygonTest {
     fn new(polygons: Vec<Vec<(f64, f64)>>) -> PointInPolygonTest {
-        println!("Polygon test instance with {} polygons", polygons.len());
+        // println!("Polygon test instance with {} polygons", polygons.len());
         let bounding_boxes: Vec<(f64, f64, f64, f64)> = polygons.iter().map(|polygon| PointInPolygonTest::calculate_bounding_box(polygon)).collect();
         return PointInPolygonTest { bounding_boxes, polygons };
     }
 
     fn check_point_between_edges(point_lon: &f64, (e1_lon, e1_lat): &(f64, f64), (e2_lon, e2_lat): &(f64, f64)) -> bool {
+        if e1_lat == e2_lat {
+            return f64::min(*e1_lon, *e2_lon) <= *point_lon && *point_lon <= f64::max(*e1_lon, *e2_lon);
+        } else if e1_lon == e2_lon {
+            return false;
+        }
         let intersection_lat = e1_lat + ((e2_lat - e1_lat) / (e2_lon - e1_lon)) * (point_lon - e1_lon);
         f64::min(*e1_lat, *e2_lat) <= intersection_lat && intersection_lat <= f64::max(*e1_lat, *e2_lat)
     }
@@ -196,7 +287,7 @@ impl PointInPolygonTest {
             lat_min = f64::min(lat_min, *lat);
             lat_max = f64::max(lat_max, *lat);
         }
-        println!("Bounding Box: ({},{}) to ({},{})", lon_min, lat_min, lon_max, lat_max);
+        //println!("Bounding Box: ({},{}) to ({},{})", lon_min, lat_min, lon_max, lat_max);
         (lon_min, lon_max, lat_min, lat_max)
     }
 
@@ -205,7 +296,7 @@ impl PointInPolygonTest {
         self.bounding_boxes.iter().enumerate().for_each(|(idx, (lon_min, lon_max, lat_min, lat_max))| {
             if lon >= *lon_min && lon <= *lon_max && lat >= *lat_min && lat <= *lat_max {
                 matching_polygons.push(idx);
-                println!("Point ({},{}) is inside bounding box of polygon {}", lon, lat, idx);
+                //println!("Point ({},{}) is inside bounding box of polygon {}", lon, lat, idx);
             }
         });
         matching_polygons.shrink_to_fit();
@@ -214,8 +305,10 @@ impl PointInPolygonTest {
 
     fn check_point_in_polygons(&self, (point_lon, point_lat): (f64, f64), polygon_indices: Vec<usize>) -> bool {
         // TODO: implement test
+        let mut intersection_count_even = true;
+        //let mut intersections: Vec<((f64, f64), (f64, f64))> = vec![];
         for polygon_idx in polygon_indices {
-            let mut intersection_count_even = true;
+            intersection_count_even = true;
             let polygon = &self.polygons[polygon_idx];
             for i in 0..polygon.len() - 1 {
                 // Todo handle intersection with the nodes as special case
@@ -224,13 +317,20 @@ impl PointInPolygonTest {
                 }
                 if PointInPolygonTest::check_point_between_edges(&point_lon, &polygon[i], &polygon[i + 1]) {
                     intersection_count_even = !intersection_count_even;
+                    //  intersections.push((polygon[i], polygon[i + 1]));
                 }
             }
-            if intersection_count_even {
-                return true;
+            if !intersection_count_even {
+                break;
             }
         }
-        return false;
+        //write_to_file("lines".parse().unwrap(), lines_to_json(intersections));
+        return !intersection_count_even;
+    }
+    const EARTH_RADIUS: i32 = 6_378_137;
+
+    fn calculate_length_between_points(p1: &Point, p2: &Point) -> f64 {
+        PointInPolygonTest::EARTH_RADIUS as f64 * ((p2.lon() - p1.lon()).powi(2) * ((p1.lat() + p2.lat()) / 2f64).cos().powi(2) * (p2.lat() - p1.lat()).powi(2)).sqrt()
     }
 
     fn check_intersection(&self, point: (f64, f64)) -> bool {
