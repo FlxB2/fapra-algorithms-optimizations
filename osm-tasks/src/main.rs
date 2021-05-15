@@ -288,6 +288,13 @@ impl PointInPolygonTest {
         let point_lon_rad = point_lon.to_radians();
 
         let intersection_lat_tan = (v1_lat_tan * ((point_lon_rad - v2_lon_rad).sin() / delta_v_lon_sin) - v2_lat_tan * ((point_lon_rad - v1_lon_rad).sin() / delta_v_lon_sin));
+        if intersection_lat_tan == v1_lat_tan || intersection_lat_tan == v2_lat_tan {
+            //special case: intersection is on one of the vertices
+            let (hit_vert_lon_rad, other_vert_lon_rad) = if intersection_lat_tan == v1_lat_tan {(v1_lon_rad, v2_lon_rad)} else {(v2_lon_rad, v1_lon_rad)};
+            // tread it as in polygon iff the other vertex is westward of the hit vertex
+            return (hit_vert_lon_rad-other_vert_lon_rad).sin() > 0f64;
+        }
+
         // intersection must be between the vertices and not below the point
         f64::min(v1_lat_tan, v2_lat_tan) <= intersection_lat_tan
             && intersection_lat_tan <= f64::max(v1_lat_tan, v2_lat_tan)
@@ -322,14 +329,12 @@ impl PointInPolygonTest {
     }
 
     fn check_point_in_polygons(&self, (point_lon, point_lat): (f64, f64), polygon_indices: Vec<usize>) -> bool {
-        // TODO: implement test
         let mut intersection_count_even = true;
         //let mut intersections: Vec<((f64, f64), (f64, f64))> = vec![];
         for polygon_idx in polygon_indices {
             intersection_count_even = true;
             let polygon = &self.polygons[polygon_idx];
             for i in 0..polygon.len() - 1 {
-                // Todo handle intersection with the nodes as special case
                 if polygon[i].1 < point_lat && polygon[i + 1].1 < point_lat {
                     continue;
                 }
