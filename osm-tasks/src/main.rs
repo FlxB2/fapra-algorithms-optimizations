@@ -4,11 +4,15 @@ use std::io::Write;
 use std::iter::FromIterator;
 use std::slice::Iter;
 use std::time::Instant;
+use std::iter;
+
+use rayon::prelude::*;
 
 use osmpbf::{Element, ElementReader};
 use rand::distributions::{Distribution, Uniform};
 
 use crate::json_generator::JsonBuilder;
+
 
 mod json_generator;
 
@@ -59,20 +63,22 @@ fn read_file(path: &str) {
 
     // sort polygons by size so that we check the bigger before the smaller ones
     polygons.sort_by(|a, b| b.len().cmp(&a.len()));
+    println!("Number of Polygons: {}", polygons.first().unwrap().len());
+
     /*
     let file = "poly";
     JsonBuilder::new(String::from(file)).add_polygons(polygons).build();
     println!("Generated json");*/
 
     let point_test = PointInPolygonTest::new(vec![polygons[3].clone()]);
-    //let point_to_test = (-20.26368141174316, 63.44908972219714);
+    //let point_to_test = ( -20.30324399471283, 63.430207573053615);
     //println!("Check point in polygons: ({}, {}) is in polygons: {}", point_to_test.0, point_to_test.1, point_test.check_intersection(point_to_test.clone()));
 
     //println!("idx {:?}", point_test.check_intersecting_bounding_boxes(point_to_test));
-    let lon_max = -20.161285400390625;
-    let lon_min = -20.388565063476562;
-    let lat_min = 63.38629304338259;
-    let lat_max = 63.46615737019882;
+    let lon_min = -20.342559814453125;
+    let lon_max = -20.20832061767578;
+    let lat_min = 63.39413573718524;
+    let lat_max = 63.45864118848073;
 
     let points_in_polygon = test_random_points_in_polygon(&point_test, 10000, (lon_min, lon_max, lat_min, lat_max));
     write_to_file("island".parse().unwrap(), points_to_json(points_in_polygon));
@@ -126,17 +132,15 @@ fn test_random_points_in_polygon(polygon_test: &PointInPolygonTest, number_of_po
     let mut rng = rand::thread_rng();
     let rng_lat = Uniform::from(lat_min..lat_max);
     let rng_lon = Uniform::from(lon_min..lon_max);
-
-    let mut points_in_polygon: Vec<(f64, f64)> = Vec::new();
-
-    for i in 0..number_of_points_to_test {
-        let test_point: (f64, f64) = (rng_lon.sample(&mut rng), rng_lat.sample(&mut rng));
+    let coords: Vec<(f64,f64)> = iter::repeat(0).take(number_of_points_to_test).map(|_|{
+        (rng_lon.sample(&mut rng), rng_lat.sample(&mut rng))
+    }).collect();
+       coords.into_par_iter().map( |test_point: (f64, f64)|{
         if polygon_test.check_intersection(test_point.clone()) {
-            points_in_polygon.push(test_point);
+            return test_point;
         }
-    }
-
-    return points_in_polygon;
+        return (f64::NAN, f64::NAN);
+    }).filter(|(lon,lat) :&(f64,f64)|{!lon.is_nan()}).collect()
 }
 
 fn merge_ways_to_polygons1(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_location: HashMap<i64, (f64, f64)>) -> Vec<Vec<(f64, f64)>> {
@@ -266,14 +270,24 @@ impl PointInPolygonTest {
         return PointInPolygonTest { bounding_boxes, polygons };
     }
 
-    fn check_point_between_edges(point_lon: &f64, (e1_lon, e1_lat): &(f64, f64), (e2_lon, e2_lat): &(f64, f64)) -> bool {
-        if e1_lat == e2_lat {
-            return f64::min(*e1_lon, *e2_lon) <= *point_lon && *point_lon <= f64::max(*e1_lon, *e2_lon);
-        } else if e1_lon == e2_lon {
+    fn check_point_between_edges((point_lon, point_lat): &(f64, f64), (v1_lon, v1_lat): &(f64, f64), (v2_lon, v2_lat): &(f64, f64)) -> bool {
+        if v1_lat == v2_lat {
+            return f64::min(*v1_lon, *v2_lon) <= *point_lon && *point_lon <= f64::max(*v1_lon, *v2_lon);
+        } else if v1_lon == v2_lon {
             return false;
         }
-        let intersection_lat = e1_lat + ((e2_lat - e1_lat) / (e2_lon - e1_lon)) * (point_lon - e1_lon);
-        f64::min(*e1_lat, *e2_lat) <= intersection_lat && intersection_lat <= f64::max(*e1_lat, *e2_lat)
+        let v1_lon_rad = v1_lon.to_radians();
+        let v1_lat_tan = v1_lat.to_radians().tan();
+        let v2_lon_rad = v2_lon.to_radians();
+        let v2_lat_tan = v2_lat.to_radians().tan();
+        let delta_v_lon_sin = (v1_lon_rad-v2_lon_rad).sin();
+        let point_lon_rad = point_lon.to_radians();
+
+        let intersection_lat_tan = (v1_lat_tan*((point_lon_rad-v2_lon_rad).sin()/delta_v_lon_sin)-v2_lat_tan*((point_lon_rad-v1_lon_rad).sin()/delta_v_lon_sin));
+        // intersection must be between the vertices and not below the point
+        f64::min(v1_lat_tan, v2_lat_tan) <= intersection_lat_tan
+            && intersection_lat_tan <= f64::max(v1_lat_tan, v2_lat_tan)
+            && intersection_lat_tan >= point_lat.to_radians().tan()
     }
 
     fn calculate_bounding_box(polygon: &Vec<(f64, f64)>) -> (f64, f64, f64, f64) {
@@ -312,10 +326,10 @@ impl PointInPolygonTest {
             let polygon = &self.polygons[polygon_idx];
             for i in 0..polygon.len() - 1 {
                 // Todo handle intersection with the nodes as special case
-                if polygon[i].1 > point_lat && polygon[i + 1].1 > point_lat {
+                if polygon[i].1 < point_lat && polygon[i + 1].1 < point_lat {
                     continue;
                 }
-                if PointInPolygonTest::check_point_between_edges(&point_lon, &polygon[i], &polygon[i + 1]) {
+                if PointInPolygonTest::check_point_between_edges(&(point_lon, point_lat), &polygon[i], &polygon[i + 1]) {
                     intersection_count_even = !intersection_count_even;
                     //  intersections.push((polygon[i], polygon[i + 1]));
                 }
