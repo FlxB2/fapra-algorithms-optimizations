@@ -114,7 +114,7 @@ fn lines_to_json(lines: Vec<((f64, f64), (f64, f64))>) -> String {
       \"type\": \"Feature\",
       \"properties\": {{}},
       \"geometry\":  {} \
-    }}.\n", geometry);
+    }}\n,", geometry);
         features = features + &*feature;
     }
     features.pop();
