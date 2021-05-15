@@ -1,18 +1,16 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Write;
+use std::iter;
 use std::iter::FromIterator;
 use std::slice::Iter;
 use std::time::Instant;
-use std::iter;
-
-use rayon::prelude::*;
 
 use osmpbf::{Element, ElementReader};
 use rand::distributions::{Distribution, Uniform};
+use rayon::prelude::*;
 
 use crate::json_generator::JsonBuilder;
-
 
 mod json_generator;
 
@@ -132,15 +130,15 @@ fn test_random_points_in_polygon(polygon_test: &PointInPolygonTest, number_of_po
     let mut rng = rand::thread_rng();
     let rng_lat = Uniform::from(lat_min..lat_max);
     let rng_lon = Uniform::from(lon_min..lon_max);
-    let coords: Vec<(f64,f64)> = iter::repeat(0).take(number_of_points_to_test).map(|_|{
+    let coords: Vec<(f64, f64)> = iter::repeat(0).take(number_of_points_to_test).map(|_| {
         (rng_lon.sample(&mut rng), rng_lat.sample(&mut rng))
     }).collect();
-       coords.into_par_iter().map( |test_point: (f64, f64)|{
+    coords.into_par_iter().map(|test_point: (f64, f64)| {
         if polygon_test.check_intersection(test_point.clone()) {
             return test_point;
         }
         return (f64::NAN, f64::NAN);
-    }).filter(|(lon,lat) :&(f64,f64)|{!lon.is_nan()}).collect()
+    }).filter(|(lon, lat): &(f64, f64)| { !lon.is_nan() }).collect()
 }
 
 fn merge_ways_to_polygons1(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_location: HashMap<i64, (f64, f64)>) -> Vec<Vec<(f64, f64)>> {
@@ -271,19 +269,25 @@ impl PointInPolygonTest {
     }
 
     fn check_point_between_edges((point_lon, point_lat): &(f64, f64), (v1_lon, v1_lat): &(f64, f64), (v2_lon, v2_lat): &(f64, f64)) -> bool {
-        if v1_lat == v2_lat {
+        if v1_lon == v2_lon {
+            // Ignore north-south edges
+            return false;
+        } else if v1_lat == v2_lat {
             return f64::min(*v1_lon, *v2_lon) <= *point_lon && *point_lon <= f64::max(*v1_lon, *v2_lon);
-        } else if v1_lon == v2_lon {
+        } else if *point_lon < f64::min(*v1_lon, *v2_lon) || f64::max(*v1_lon, *v2_lon) < *point_lon {
+            // Can not intersect with the edge
             return false;
         }
+        // Todo: If both ends of the edge are in the northern hemisphere and the test point is south of the chord (on a lat-Ion projection) between the end points, it intersects the edge.
+
         let v1_lon_rad = v1_lon.to_radians();
         let v1_lat_tan = v1_lat.to_radians().tan();
         let v2_lon_rad = v2_lon.to_radians();
         let v2_lat_tan = v2_lat.to_radians().tan();
-        let delta_v_lon_sin = (v1_lon_rad-v2_lon_rad).sin();
+        let delta_v_lon_sin = (v1_lon_rad - v2_lon_rad).sin();
         let point_lon_rad = point_lon.to_radians();
 
-        let intersection_lat_tan = (v1_lat_tan*((point_lon_rad-v2_lon_rad).sin()/delta_v_lon_sin)-v2_lat_tan*((point_lon_rad-v1_lon_rad).sin()/delta_v_lon_sin));
+        let intersection_lat_tan = (v1_lat_tan * ((point_lon_rad - v2_lon_rad).sin() / delta_v_lon_sin) - v2_lat_tan * ((point_lon_rad - v1_lon_rad).sin() / delta_v_lon_sin));
         // intersection must be between the vertices and not below the point
         f64::min(v1_lat_tan, v2_lat_tan) <= intersection_lat_tan
             && intersection_lat_tan <= f64::max(v1_lat_tan, v2_lat_tan)
@@ -328,6 +332,10 @@ impl PointInPolygonTest {
                 // Todo handle intersection with the nodes as special case
                 if polygon[i].1 < point_lat && polygon[i + 1].1 < point_lat {
                     continue;
+                }
+                if polygon[i] == (point_lon, point_lat) {
+                    // Point is at the vertex -> we define this as within the polygon
+                    return true;
                 }
                 if PointInPolygonTest::check_point_between_edges(&(point_lon, point_lat), &polygon[i], &polygon[i + 1]) {
                     intersection_count_even = !intersection_count_even;
