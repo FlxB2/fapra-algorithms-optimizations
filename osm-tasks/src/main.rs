@@ -6,11 +6,15 @@ use std::time::Instant;
 use osmpbf::{Element, ElementReader};
 
 use crate::json_generator::JsonBuilder;
+use crate::grid_graph::GridGraph;
 
 mod json_generator;
+mod grid_graph;
 
 fn main() {
-    read_file("./monaco-latest.osm.pbf");
+    let grid = GridGraph::new();
+    JsonBuilder::new(String::from("testii")).add_points(grid.coords).build();
+    //read_file("./monaco-latest.osm.pbf");
 }
 
 fn read_file(path: &str) {

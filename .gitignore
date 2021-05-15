@@ -1,6 +1,9 @@
 # custom regarding JSON outputs
 polygon_*
 
+# ignore pbf files
+*.pbf
+
 # JetBrains Stuff
 
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
