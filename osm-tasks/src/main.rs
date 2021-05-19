@@ -11,9 +11,11 @@ use rand::distributions::{Distribution, Uniform};
 use rayon::prelude::*;
 
 use crate::json_generator::JsonBuilder;
+use crate::kml_exporter::KML_export;
 
 mod json_generator;
 mod dijkstra;
+mod kml_exporter;
 
 
 fn main() {
@@ -81,7 +83,10 @@ fn read_file(path: &str) {
     let lat_max = 63.45864118848073;
 
     let points_in_polygon = test_random_points_in_polygon(&point_test, 10000, (lon_min, lon_max, lat_min, lat_max));
-    write_to_file("island".parse().unwrap(), points_to_json(points_in_polygon));
+    //write_to_file("island".parse().unwrap(), points_to_json(points_in_polygon));
+    let mut kml = KML_export::init();
+    points_in_polygon.into_iter().for_each(|p|{kml.add_point(p, None)});
+    kml.write_file("kml.kml".parse().unwrap());
 }
 
 fn write_to_file(name: String, data: String) {
