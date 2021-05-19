@@ -6,7 +6,6 @@ pub(crate) struct DummyGraph{
     offsets: Vec<usize>,
     edges_target: Vec<i32>,
     edges_distance: Vec<u32>
-
 }
 impl DummyGraph{
     pub(crate) fn init() -> DummyGraph{
@@ -30,7 +29,8 @@ impl<'a> GraphInterface<'a> for DummyGraph {
 }
 
 
-pub(crate) struct Dijkstra {
+pub(crate) struct Dijkstra<'a> {
+    graph_ref: &'a dyn GraphInterface<'a>,
     heap : BinaryHeap<HeapItem>,
     distances : Vec<u32>,
     previous_nodes: Vec<i32>,
@@ -76,8 +76,8 @@ pub trait GraphInterface<'a> {
     fn get_nodes_count(&'a self) -> i32;
 }
 
-impl Dijkstra {
-    pub fn new<'a, T: GraphInterface<'a>>(graph: &'a T, source_node: i32) -> Dijkstra {
+impl<'a> Dijkstra<'a> {
+    pub fn new<T: GraphInterface<'a>>(graph: &'a T, source_node: i32) -> Dijkstra {
         //println!("New dijkstra instance with source node {}", source_node);
         let number_of_nodes = graph.get_nodes_count() as usize;
         // Todo: Ist es sinnvoll den heap mit der Anzahl der Knoten zu initialisieren?
@@ -89,10 +89,10 @@ impl Dijkstra {
             distance: 0,
             previous_node: source_node
         });
-        return Dijkstra { heap, distances, previous_nodes, source_node };
+        return Dijkstra { graph_ref: graph, heap, distances, previous_nodes, source_node };
     }
 
-    pub fn change_source_node<'a, T: GraphInterface<'a>>(&mut self, graph: &'a T, source_node: i32) {
+    pub fn change_source_node(&mut self, source_node: i32) {
         if source_node == self.source_node {
             return;
         }
@@ -108,15 +108,15 @@ impl Dijkstra {
         self.previous_nodes.fill(-1);
     }
 
-    pub fn find_route<'a, T: GraphInterface<'a>>(&mut self, graph: &'a T, destination_node: &i32) -> (Vec<i32>, u32){
+    pub fn find_route(&mut self, destination_node: &i32) -> (Vec<i32>, u32){
         if self.distances[*destination_node as usize] != u32::MAX {
             return (self.traverse_route(destination_node), self.distances[*destination_node as usize]);
         }
-        self.dijkstra(graph, destination_node);
+        self.dijkstra(destination_node);
         (self.traverse_route(destination_node), self.distances[*destination_node as usize])
     }
 
-    fn dijkstra<'a, T: GraphInterface<'a>>(&mut self, graph: &'a T, destination_node: &i32) {
+    fn dijkstra(&mut self, destination_node: &i32) {
         loop {
             let heap_element = self.heap.pop().expect(&*format!("Heap is empty but dest node not found. src {}, dest {}", self.source_node, destination_node));
             //println!("Popped element from heap {}", heap_element);
@@ -126,7 +126,7 @@ impl Dijkstra {
             }
             self.previous_nodes[heap_element.node_id as usize] = heap_element.previous_node;
             self.distances[heap_element.node_id as usize] = heap_element.distance;
-            let (nodes, distances) = graph.get_neighbors_of_node_and_distances(heap_element.node_id);
+            let (nodes, distances) = self.graph_ref.get_neighbors_of_node_and_distances(heap_element.node_id);
             for (next_node, next_node_distance) in  nodes.iter().zip(distances.iter()) {
                 if self.distances[*next_node as usize] == u32::MAX {
                     //println!("add edge form {} to {} with dist {}", heap_element.node_id, next_node, next_node_distance);
@@ -162,13 +162,13 @@ pub(crate) fn main() {
     let source_node = 0;
     let target_node = 0;
     let mut dijkstra = Dijkstra::new(&graph, source_node);
-    println!("Route from {} to {} is {:?}", source_node, target_node, dijkstra.find_route(&graph, &target_node));
+    println!("Route from {} to {} is {:?}", source_node, target_node, dijkstra.find_route( &target_node));
     let node_count = graph.get_nodes_count();
     for i in 0..node_count {
         let mut distances = vec![u32::MAX; node_count as usize];
-        dijkstra.change_source_node(&graph, i);
+        dijkstra.change_source_node( i);
         for j in 0..node_count {
-            let res =  dijkstra.find_route(&graph, &j);
+            let res =  dijkstra.find_route( &j);
             distances[j as usize] = res.1;
         }
         println!("Routes from {}: {:?}",i, distances);
