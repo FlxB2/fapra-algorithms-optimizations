@@ -13,6 +13,8 @@ use rayon::prelude::*;
 use crate::json_generator::JsonBuilder;
 
 mod json_generator;
+mod dijkstra;
+
 
 fn main() {
     //read_file("./monaco-latest.osm.pbf");
@@ -183,7 +185,7 @@ fn merge_ways_to_polygons1(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_lo
     }
     return polygons;
 }
-
+#[allow(dead_code)]
 fn merge_ways_to_polygons2(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_location: HashMap<i64, (f64, f64)>) -> Vec<Vec<(f64, f64)>> {
     let mut unprocessed_coastlines: HashSet<&i64> = HashSet::from_iter(coastlines.keys());
     let mut polygons: Vec<Vec<(f64, f64)>> = vec![];
