@@ -2,7 +2,6 @@ use std::collections::BinaryHeap;
 use std::cmp::Ordering;
 use std::fmt;
 
-// Todo: Arrays und so nicht jedes mal neu anlegen sondern stattdessen beim nächsten durchlauf die bestehenden wiederverwenden -> Methode für neuinitialisieren
 pub(crate) struct DummyGraph{
     offsets: Vec<usize>,
     edges_target: Vec<i32>,
@@ -81,6 +80,7 @@ impl Dijkstra {
     pub fn new<'a, T: GraphInterface<'a>>(graph: &'a T, source_node: i32) -> Dijkstra {
         //println!("New dijkstra instance with source node {}", source_node);
         let number_of_nodes = graph.get_nodes_count() as usize;
+        // Todo: Ist es sinnvoll den heap mit der Anzahl der Knoten zu initialisieren?
         let mut heap = BinaryHeap::with_capacity(number_of_nodes);
         let distances = vec![u32::MAX; number_of_nodes];
         let previous_nodes = vec![-1; number_of_nodes];
@@ -90,6 +90,22 @@ impl Dijkstra {
             previous_node: source_node
         });
         return Dijkstra { heap, distances, previous_nodes, source_node };
+    }
+
+    pub fn change_source_node<'a, T: GraphInterface<'a>>(&mut self, graph: &'a T, source_node: i32) {
+        if source_node == self.source_node {
+            return;
+        }
+        //println!("Reinitialized dijkstra for new source node {}", source_node);
+        self.source_node = source_node;
+        self.heap.clear();
+        self.heap.push(HeapItem {
+            node_id: source_node,
+            distance: 0,
+            previous_node: source_node
+        });
+        self.distances.fill(u32::MAX);
+        self.previous_nodes.fill(-1);
     }
 
     pub fn find_route<'a, T: GraphInterface<'a>>(&mut self, graph: &'a T, destination_node: &i32) -> (Vec<i32>, u32){
@@ -150,7 +166,7 @@ pub(crate) fn main() {
     let node_count = graph.get_nodes_count();
     for i in 0..node_count {
         let mut distances = vec![u32::MAX; node_count as usize];
-        dijkstra = Dijkstra::new(&graph, i);
+        dijkstra.change_source_node(&graph, i);
         for j in 0..node_count {
             let res =  dijkstra.find_route(&graph, &j);
             distances[j as usize] = res.1;
