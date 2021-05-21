@@ -24,8 +24,15 @@ mod polygon_test;
 
 fn main() {
     //read_file("./monaco-latest.osm.pbf");
-    read_file("./iceland-coastlines.osm.pbf");
+    //read_file("./iceland-coastlines.osm.pbf");
     //read_file("./planet-coastlines.osm.pbf");
+
+    let mut kml = KML_export::init();
+    //points_in_polygon.into_iter().for_each(|p| { kml.add_point(p, None) });
+    let graph = GridGraph::new();
+    graph.nodes.into_iter().for_each(|n| { kml.add_point((n.lat, n.lon), None) });
+    graph.edges.into_iter().for_each(|e| {kml.add_linestring( Vec::from([(e.source.lat, e.source.lon),(e.target.lat, e.target.lon)]), None)});
+    kml.write_file("kml.kml".parse().unwrap());
 }
 
 fn read_file(path: &str) {
@@ -76,20 +83,18 @@ fn read_file(path: &str) {
     JsonBuilder::new(String::from(file)).add_polygons(polygons).build();
     println!("Generated json");*/
 
-    let point_test = PointInPolygonTest::new(vec![polygons[3].clone()]);
-    //let point_to_test = ( -20.30324399471283, 63.430207573053615);
-    //println!("Check point in polygons: ({}, {}) is in polygons: {}", point_to_test.0, point_to_test.1, point_test.check_intersection(point_to_test.clone()));
-
-    //println!("idx {:?}", point_test.check_intersecting_bounding_boxes(point_to_test));
+    /*let point_test = PointInPolygonTest::new(vec![polygons[3].clone()]);
     let lon_min = -20.342559814453125;
     let lon_max = -20.20832061767578;
     let lat_min = 63.39413573718524;
     let lat_max = 63.45864118848073;
 
-    let points_in_polygon = test_random_points_in_polygon(&point_test, 10000, (lon_min, lon_max, lat_min, lat_max));
+    let points_in_polygon = test_random_points_in_polygon(&point_test, 10000, (lon_min, lon_max, lat_min, lat_max)); */
     //write_to_file("island".parse().unwrap(), points_to_json(points_in_polygon));
     let mut kml = KML_export::init();
-    points_in_polygon.into_iter().for_each(|p| { kml.add_point(p, None) });
+    //points_in_polygon.into_iter().for_each(|p| { kml.add_point(p, None) });
+    let graph = GridGraph::new();
+    //graph.nodes.into_iter().foreach(|n| { kml.add_point(n, None) });
     kml.write_file("kml.kml".parse().unwrap());
 }
 
