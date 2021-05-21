@@ -9,3 +9,6 @@ edition = "2018"
 [dependencies]
 osmpbf = "0.2"
 rayon = "1.5"
+rand = "0.8.3"
+kml = "0.3.1"
+geo = ""
