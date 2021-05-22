@@ -95,9 +95,9 @@ impl PointInPolygonTest {
                                           .anchor(qPoint { x: x+180i16, y: y + 90i16})
                                           .dimensions((x_size, y_size))
                                           .build().unwrap(), i as i32);
-            println!("{:?}", res);
+            //println!("{:?}", res);
         }
-        println!("{:?}", quadtree);
+        //println!("{:?}", quadtree);
         quadtree
     }
 
