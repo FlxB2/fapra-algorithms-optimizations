@@ -1,6 +1,9 @@
+use quadtree_rs::{area::AreaBuilder, point::Point as qPoint, Quadtree};
+
 pub struct PointInPolygonTest {
     bounding_boxes: Vec<(f64, f64, f64, f64)>,
     polygons: Vec<Vec<(f64, f64)>>,
+    quadtree: Quadtree<i16, i32>
 }
 
 pub struct Point(f64, f64);
@@ -16,12 +19,20 @@ impl Point {
     fn lat(&self) -> f64 { self.0 }
     fn lon(&self) -> f64 { self.1 }
 }
-
+/**
+Point in Polygon test
+Uses three stages to check if a point is inside a polygon:
+1.  Use a quadtree to determine the polygons that are in the same region as the point.
+    The quadtree uses a resolution of integral lat lon coordinates.
+2. Use lat lon aligned bounding boxes to further narrow down the potential polygons which could be hit by the point
+3. Do the actual point in polygon test
+**/
 impl PointInPolygonTest {
     pub fn new(polygons: Vec<Vec<(f64, f64)>>) -> PointInPolygonTest {
         // println!("Polygon test instance with {} polygons", polygons.len());
         let bounding_boxes: Vec<(f64, f64, f64, f64)> = polygons.iter().map(|polygon| PointInPolygonTest::calculate_bounding_box(polygon)).collect();
-        return PointInPolygonTest { bounding_boxes, polygons };
+        let quadtree = PointInPolygonTest::build_quadtree(&bounding_boxes);
+        return PointInPolygonTest { bounding_boxes, polygons , quadtree };
     }
 
     fn check_point_between_edges((point_lon, point_lat): &(f64, f64), (v1_lon, v1_lat): &(f64, f64), (v2_lon, v2_lat): &(f64, f64)) -> bool {
@@ -72,14 +83,41 @@ impl PointInPolygonTest {
         (lon_min, lon_max, lat_min, lat_max)
     }
 
+    fn build_quadtree(bounding_boxes: &Vec<(f64, f64, f64, f64)>) -> Quadtree<i16, i32> {
+        let mut quadtree = Quadtree::<i16, i32>::new(9 );
+        for i in 0..bounding_boxes.len() {
+            let bounding_box = bounding_boxes[i];
+            let x = bounding_box.0.floor() as i16;
+            let y = bounding_box.2.floor() as i16;
+            let x_size = bounding_box.1.ceil() as i16 - x;
+            let y_size = bounding_box.3.ceil() as i16 - y;
+            let res = quadtree.insert(AreaBuilder::default()
+                                          .anchor(qPoint { x: x+180i16, y: y + 90i16})
+                                          .dimensions((x_size, y_size))
+                                          .build().unwrap(), i as i32);
+            println!("{:?}", res);
+        }
+        println!("{:?}", quadtree);
+        quadtree
+    }
+
     fn check_intersecting_bounding_boxes(&self, (lon, lat): (f64, f64)) -> Vec<usize> {
         let mut matching_polygons: Vec<usize> = Vec::with_capacity(self.polygons.len());
-        self.bounding_boxes.iter().enumerate().for_each(|(idx, (lon_min, lon_max, lat_min, lat_max))| {
-            if lon >= *lon_min && lon <= *lon_max && lat >= *lat_min && lat <= *lat_max {
-                matching_polygons.push(idx);
-                //println!("Point ({},{}) is inside bounding box of polygon {}", lon, lat, idx);
-            }
-        });
+        // find potential polygons with the quadtree
+        self.quadtree.query(AreaBuilder::default()
+            .anchor(qPoint {x: lon.floor() as i16 + 180i16, y: lat.floor() as i16 + 90i16})
+            .dimensions((1, 1))
+            .build().unwrap())
+            .for_each(|e|{
+                //println!("Quadtree bounding box intersection");
+                let idx = *e.value_ref() as usize;
+                // do bounding box test for polygons in this quadrant of the quadtree
+                let  (lon_min, lon_max, lat_min, lat_max) = self.bounding_boxes.get(idx).unwrap();
+                if lon >= *lon_min && lon <= *lon_max && lat >= *lat_min && lat <= *lat_max {
+                    matching_polygons.push(idx);
+                    //println!("Point ({},{}) is inside bounding box of polygon {}", lon, lat, idx);
+                }
+            });
         matching_polygons.shrink_to_fit();
         return matching_polygons;
     }
