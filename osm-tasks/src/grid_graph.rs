@@ -73,8 +73,6 @@ impl GridGraph {
             }
         }
 
-        let distance_points = distance(nodes[300].lat, nodes[301].lat, nodes[300].lon, nodes[301].lon);
-
         const NUMBER_NEIGHBORS: i32 = 4;
 
         for n in 0..number_placed_nodes {
@@ -94,9 +92,6 @@ impl GridGraph {
                         small = j;
                         curr_dis = dis;
                     }
-                    if dis == 0.0 && nodes[nodes_tmp[n]].lon != nodes[nodes_tmp[j]].lon {
-                        println!("n lat {} n lon {} ; j lat {} j lon {}", nodes[nodes_tmp[n]].lat, nodes[nodes_tmp[n]].lon, nodes[nodes_tmp[j]].lat, nodes[nodes_tmp[j]].lon);
-                    }
                 }
                 k += 1;
                 let tmp = nodes_tmp[small];
@@ -111,8 +106,6 @@ impl GridGraph {
             }
         }
 
-        println!("distance: {}", distance_points);
-        println!("test distance {}", distance(3.142, 3.142, 177.0, 180.0));
         println!("number nodes {}", number_placed_nodes);
         println!("number edges {}", edges.len());
 
@@ -126,19 +119,19 @@ impl GridGraph {
 }
 
 fn distance_nodes(node1: Node, node2: Node) -> f64 {
-    return distance(node1.lat, node2.lat, node1.lon, node2.lon);
+    return distance(node1.lon, node2.lon, node1.lat, node2.lat);
 }
 
 // expects lat/lon in degrees
-fn distance(lat1: f64, lat2: f64, mut lon1: f64, mut lon2: f64) -> f64 {
+fn distance(lat1: f64, lat2: f64, lon1: f64, lon2: f64) -> f64 {
     let r = 6371.0; // rad earth in km
     let lat1 = lat1 * ((PI / 180.0) as f64); // convert to rad
     let lat2 = lat2 * ((PI / 180.0) as f64);
-    lon1 = lon1 * ((PI / 180.0) as f64);
-    lon2 = lon2 * ((PI / 180.0) as f64);
+    let lon1 = lon1 * ((PI / 180.0) as f64);
+    let lon2 = lon2 * ((PI / 180.0) as f64);
     let dlat = lat2 - lat1;
     let dlon = lon2 - lon1;
-    let a = (dlat / 2.0).sin().powf(2.0) + lat1.cos() * lat2.cos() * (dlon / 2.0).powf(2.0).sin();
+    let a = (dlat / 2.0).sin().powf(2.0) + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powf(2.0);
     let c = 2.0 * (a.sqrt()).asin();
     return r * c;
 }
