@@ -1,3 +1,5 @@
+extern crate core;
+
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::Write;
@@ -30,8 +32,14 @@ fn main() {
     let mut kml = KML_export::init();
     //points_in_polygon.into_iter().for_each(|p| { kml.add_point(p, None) });
     let graph = GridGraph::new();
+
+    for n in 0..graph.edges.len() {
+        let e = graph.edges[n];
+        kml.add_linestring( Vec::from([
+            (graph.nodes[e.source].lat, graph.nodes[e.source].lon),
+            (graph.nodes[e.target].lat, graph.nodes[e.target].lon)]), Some(e.source.to_string()));
+    }
     graph.nodes.into_iter().for_each(|n| { kml.add_point((n.lat, n.lon), None) });
-    graph.edges.into_iter().for_each(|e| {kml.add_linestring( Vec::from([(e.source.lat, e.source.lon),(e.target.lat, e.target.lon)]), None)});
     kml.write_file("kml.kml".parse().unwrap());
 }
 

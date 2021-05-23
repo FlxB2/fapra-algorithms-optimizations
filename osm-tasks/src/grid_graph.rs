@@ -6,15 +6,16 @@ nodes are represented by ids, edges by tuples where the first element is the out
 
 use std::f32::consts::PI;
 use std::f32;
+use core::num::FpCategory::Nan;
 
 // we could calculate the number of nodes during runtime
 // even better: fixed number at compile time
-const NUMBER_NODES: usize = 10000;
+const NUMBER_NODES: usize = 1000;
 
 #[derive(Clone, Copy)]
 pub struct Edge {
-    pub(crate) source: Node,
-    pub(crate) target: Node,
+    pub source: usize,
+    pub target: usize,
     distance: i32,
 }
 
@@ -40,7 +41,7 @@ impl GridGraph {
         let mut number_edges: usize = 0;
         let edge_offset = 3;
         let mut nodes = vec![Node { lat: 0.0, lon: 0.0 }; NUMBER_NODES];
-        let mut edges = vec![Edge { source: Node { lat: 0.0, lon: 0.0 }, target: Node { lat: 0.0, lon: 0.0 }, distance: 0 }; NUMBER_NODES * 8];
+        let mut edges: Vec<Edge> = Vec::new();
         let offsets = vec![edge_offset; NUMBER_NODES];
 
         // algorithm taken from here https://www.cmu.edu/biolphys/deserno/pdf/sphere_equi.pdf
@@ -58,7 +59,6 @@ impl GridGraph {
         // calculated in rad!!
         for m in 0..m_theta {
             let polar = pi * ((m as f64) + 0.5) / (m_theta as f64);
-            let number_pref_azimuth_steps = (0..m_phi).len();
             m_phi = ((2.0 * pi * (polar).sin() / d_phi).round() as i32);
             for n in 0..m_phi {
                 let azimuthal = 2.0 * pi * (n as f64) / (m_phi as f64);
@@ -68,29 +68,53 @@ impl GridGraph {
                     let lon = polar * (180.0 / pi) - 90.0;
                     let source_node = Node { lat, lon };
                     nodes[number_placed_nodes] = source_node;
-
-                    if number_pref_azimuth_steps > 3 {
-                        let indize_top_right = number_placed_nodes - number_pref_azimuth_steps;
-                        let indize_top = (indize_top_right - 1);
-                        let indize_top_left = (indize_top - 1);
-                        let indize_left = number_placed_nodes - 1;
-                        edges[number_edges] = Edge { source: source_node, target: nodes[indize_top_left], distance: 0 };
-                        edges[number_edges + 1] = Edge { source: source_node, target: nodes[indize_top], distance: 0 };
-                        edges[number_edges + 2] = Edge { source: source_node, target: nodes[indize_top_right], distance: 0 };
-                        edges[number_edges + 3] = Edge { source: nodes[indize_top_left], target: source_node, distance: 0 };
-                        edges[number_edges + 4] = Edge { source: nodes[indize_top], target: source_node, distance: 0 };
-                        edges[number_edges + 5] = Edge { source: nodes[indize_top_right], target: source_node, distance: 0 };
-                        edges[number_edges + 6] = Edge { source: source_node, target: nodes[indize_left], distance: 0 };
-                        edges[number_edges + 7] = Edge { source: nodes[indize_left], target: source_node, distance: 0 };
-                        number_edges += 7;
-                    }
                     number_placed_nodes += 1;
                 }
             }
         }
 
+        let distance_points = distance(nodes[300].lat, nodes[301].lat, nodes[300].lon, nodes[301].lon);
+
+        const NUMBER_NEIGHBORS: i32 = 4;
+
+        for n in 0..number_placed_nodes {
+            let mut k = 0;
+
+            // used for shifting during selection sort
+            // maps real index to swapped nodes
+            let mut nodes_tmp: Vec<usize> = (0..number_placed_nodes).map(|x| x).collect();
+
+            // use selection sort to find k closest neighbors
+            for i in 0..number_placed_nodes {
+                let mut small = i;
+                let mut curr_dis = distance_nodes(nodes[nodes_tmp[n]], nodes[nodes_tmp[i]]);
+                for j in (i+1)..number_placed_nodes {
+                    let dis = distance_nodes(nodes[nodes_tmp[n]], nodes[nodes_tmp[j]]);
+                    if dis < curr_dis && dis != 0.0 {
+                        small = j;
+                        curr_dis = dis;
+                    }
+                    if dis == 0.0 && nodes[nodes_tmp[n]].lon != nodes[nodes_tmp[j]].lon {
+                        println!("n lat {} n lon {} ; j lat {} j lon {}", nodes[nodes_tmp[n]].lat, nodes[nodes_tmp[n]].lon, nodes[nodes_tmp[j]].lat, nodes[nodes_tmp[j]].lon);
+                    }
+                }
+                k += 1;
+                let tmp = nodes_tmp[small];
+                nodes_tmp[small] = nodes_tmp[i];
+                nodes_tmp[i] = tmp;
+                edges.push(Edge { source: n, target: small, distance: curr_dis as i32 });
+
+                // we only need k neighbors
+                if k > NUMBER_NEIGHBORS {
+                    break;
+                }
+            }
+        }
+
+        println!("distance: {}", distance_points);
+        println!("test distance {}", distance(3.142, 3.142, 177.0, 180.0));
         println!("number nodes {}", number_placed_nodes);
-        println!("number edges {}", number_edges);
+        println!("number edges {}", edges.len());
 
         GridGraph {
             number_nodes: NUMBER_NODES as i64,
@@ -99,6 +123,24 @@ impl GridGraph {
             nodes,
         }
     }
+}
+
+fn distance_nodes(node1: Node, node2: Node) -> f64 {
+    return distance(node1.lat, node2.lat, node1.lon, node2.lon);
+}
+
+// expects lat/lon in degrees
+fn distance(lat1: f64, lat2: f64, mut lon1: f64, mut lon2: f64) -> f64 {
+    let r = 6371.0; // rad earth in km
+    let lat1 = lat1 * ((PI / 180.0) as f64); // convert to rad
+    let lat2 = lat2 * ((PI / 180.0) as f64);
+    lon1 = lon1 * ((PI / 180.0) as f64);
+    lon2 = lon2 * ((PI / 180.0) as f64);
+    let dlat = lat2 - lat1;
+    let dlon = lon2 - lon1;
+    let a = (dlat / 2.0).sin().powf(2.0) + lat1.cos() * lat2.cos() * (dlon / 2.0).powf(2.0).sin();
+    let c = 2.0 * (a.sqrt()).asin();
+    return r * c;
 }
 
 fn to_lat_lon(theta: f64, phi: f64) -> (f64, f64) {
