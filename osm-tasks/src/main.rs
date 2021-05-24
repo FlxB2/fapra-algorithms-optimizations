@@ -26,12 +26,14 @@ mod polygon_test;
 
 fn main() {
     //read_file("./monaco-latest.osm.pbf");
-    //read_file("./iceland-coastlines.osm.pbf");
-    //read_file("./planet-coastlines.osm.pbf");
+    //let polygons = read_file("./iceland-coastlines.osm.pbf");
+    let polygons = read_file("./planet-coastlines.pbf.sec");
+
+    let polygon_test = PointInPolygonTest::new(polygons);
 
     let mut kml = KML_export::init();
     //points_in_polygon.into_iter().for_each(|p| { kml.add_point(p, None) });
-    let graph = GridGraph::new();
+    let graph = GridGraph::new(polygon_test);
 
     for n in 0..graph.edges.len() {
         let e = graph.edges[n];
@@ -43,7 +45,7 @@ fn main() {
     kml.write_file("kml.kml".parse().unwrap());
 }
 
-fn read_file(path: &str) {
+fn read_file(path: &str) -> Vec<Vec<(f64, f64)>> {
     let start_time = Instant::now();
     let reader = ElementReader::from_path(path).expect(&*format!("failed to read file {}", path));
 
@@ -99,11 +101,12 @@ fn read_file(path: &str) {
 
     let points_in_polygon = test_random_points_in_polygon(&point_test, 10000, (lon_min, lon_max, lat_min, lat_max)); */
     //write_to_file("island".parse().unwrap(), points_to_json(points_in_polygon));
-    let mut kml = KML_export::init();
+    //let mut kml = KML_export::init();
     //points_in_polygon.into_iter().for_each(|p| { kml.add_point(p, None) });
-    let graph = GridGraph::new();
+    //let graph = GridGraph::new();
     //graph.nodes.into_iter().foreach(|n| { kml.add_point(n, None) });
-    kml.write_file("kml.kml".parse().unwrap());
+    //kml.write_file("kml.kml".parse().unwrap());
+    return polygons;
 }
 
 fn write_to_file(name: String, data: String) {

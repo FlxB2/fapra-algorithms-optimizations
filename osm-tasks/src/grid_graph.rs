@@ -7,10 +7,12 @@ nodes are represented by ids, edges by tuples where the first element is the out
 use std::f32::consts::PI;
 use std::f32;
 use core::num::FpCategory::Nan;
+use crate::polygon_test::PointInPolygonTest;
 
 // we could calculate the number of nodes during runtime
 // even better: fixed number at compile time
-const NUMBER_NODES: usize = 1000;
+const NUMBER_NODES: usize = 10000;
+const NUMBER_NEIGHBORS: i32 = 4;
 
 #[derive(Clone, Copy)]
 pub struct Edge {
@@ -36,7 +38,7 @@ pub struct GridGraph {
 }
 
 impl GridGraph {
-    pub fn new() -> GridGraph {
+    pub fn new(polygon_test: PointInPolygonTest) -> GridGraph {
         let mut number_placed_nodes: usize = 0;
         let mut number_edges: usize = 0;
         let edge_offset = 3;
@@ -66,14 +68,15 @@ impl GridGraph {
                     // convert rad to degrees and lon = polar - 90; lat = azimuthal-180
                     let lat = azimuthal * (180.0 / pi) - 180.0;
                     let lon = polar * (180.0 / pi) - 90.0;
-                    let source_node = Node { lat, lon };
-                    nodes[number_placed_nodes] = source_node;
-                    number_placed_nodes += 1;
+                    let ignore_node = polygon_test.check_intersection((lat,lon));
+                    if !ignore_node {
+                        let source_node = Node { lat, lon };
+                        nodes[number_placed_nodes] = source_node;
+                        number_placed_nodes += 1;
+                    }
                 }
             }
         }
-
-        const NUMBER_NEIGHBORS: i32 = 4;
 
         for n in 0..number_placed_nodes {
             let mut k = 0;
