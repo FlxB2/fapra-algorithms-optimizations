@@ -25,14 +25,14 @@ mod polygon_test;
 fn main() {
     //read_file("./monaco-latest.osm.pbf");
     //read_file("./iceland-coastlines.osm.pbf");
-    //read_file("./planet-coastlines.osm.pbf");
+    read_file("./planet-coastlines.osm.pbf");
 
-    let mut kml = KML_export::init();
+    /*let mut kml = KML_export::init();
     //points_in_polygon.into_iter().for_each(|p| { kml.add_point(p, None) });
     let graph = GridGraph::new();
-    graph.nodes.into_iter().for_each(|n| { kml.add_point((n.lat, n.lon), None) });
+    graph.nodes.into_iter().enumerate().for_each(|(i, n)| { kml.add_point((n.lat, n.lon), Some(i.to_string())) });
     graph.edges.into_iter().for_each(|e| {kml.add_linestring( Vec::from([(e.source.lat, e.source.lon),(e.target.lat, e.target.lon)]), None)});
-    kml.write_file("kml.kml".parse().unwrap());
+    kml.write_file("kml.kml".parse().unwrap());*/
 }
 
 fn read_file(path: &str) {
@@ -82,18 +82,29 @@ fn read_file(path: &str) {
     let file = "poly";
     JsonBuilder::new(String::from(file)).add_polygons(polygons).build();
     println!("Generated json");*/
+    let poly_test_init = Instant::now();
+    let point_test = PointInPolygonTest::new(polygons);
+    println!("polygon test initialisation took {} sec", poly_test_init.elapsed().as_secs());
+    let graph_start = Instant::now();
+    let graph = GridGraph::new(&point_test);
+    println!("Graph generation took {} sec", graph_start.elapsed().as_secs());
 
-    /*let point_test = PointInPolygonTest::new(vec![polygons[3].clone()]);
+    let mut kml = KML_export::init();
+    graph.nodes.iter().enumerate().for_each(|(i, n)| { kml.add_point((*n).into(), Some(i.to_string())) });
+    graph.edges.iter().for_each(|e| {kml.add_linestring( Vec::from([graph.nodes[e.source as usize].into(),graph.nodes[e.target as usize].into()]), None)});
+    kml.write_file("kml.kml".parse().unwrap());
+    return;
     let lon_min = -20.342559814453125;
     let lon_max = -20.20832061767578;
     let lat_min = 63.39413573718524;
     let lat_max = 63.45864118848073;
 
-    let points_in_polygon = test_random_points_in_polygon(&point_test, 10000, (lon_min, lon_max, lat_min, lat_max)); */
+    let points_in_polygon = test_random_points_in_polygon(&point_test, 100000, (lon_min, lon_max, lat_min, lat_max));
     //write_to_file("island".parse().unwrap(), points_to_json(points_in_polygon));
+
     let mut kml = KML_export::init();
-    //points_in_polygon.into_iter().for_each(|p| { kml.add_point(p, None) });
-    let graph = GridGraph::new();
+    points_in_polygon.into_iter().for_each(|p| { kml.add_point(p, None) });
+    //let graph = GridGraph::new();
     //graph.nodes.into_iter().foreach(|n| { kml.add_point(n, None) });
     kml.write_file("kml.kml".parse().unwrap());
 }
