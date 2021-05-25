@@ -11,7 +11,7 @@ use crate::polygon_test::PointInPolygonTest;
 
 // we could calculate the number of nodes during runtime
 // even better: fixed number at compile time
-const NUMBER_NODES: usize = 10000;
+const NUMBER_NODES: usize = 1000;
 const NUMBER_NEIGHBORS: i32 = 4;
 
 #[derive(Clone, Copy)]
@@ -38,6 +38,14 @@ pub struct GridGraph {
 }
 
 impl GridGraph {
+    pub fn default() -> GridGraph {
+        GridGraph {
+            number_nodes: 0,
+            offsets: Vec::new(),
+            edges: Vec::new(),
+            nodes: Vec::new()
+        }
+    }
     pub fn new(polygon_test: PointInPolygonTest) -> GridGraph {
         let mut number_placed_nodes: usize = 0;
         let mut number_edges: usize = 0;
