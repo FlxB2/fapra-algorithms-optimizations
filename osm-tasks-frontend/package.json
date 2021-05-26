@@ -7,7 +7,8 @@
     "build": "ng build",
     "test": "ng test",
     "lint": "ng lint",
-    "e2e": "ng e2e"
+    "e2e": "ng e2e",
+    "gen": "ng-openapi-gen --input http://localhost:8000/openapi.json -o generated/"
   },
   "private": true,
   "dependencies": {
@@ -42,6 +43,8 @@
     "protractor": "~5.4.0",
     "ts-node": "~7.0.0",
     "tslint": "~5.15.0",
-    "typescript": "~3.5.3"
+    "typescript": "~3.5.3",
+    "ng-openapi-gen": "^0.17.0",
+    "prettier": "^2.0.5"
   }
 }
