@@ -1,12 +1,11 @@
 /*
 simple grid graph representation following a classic adjacency list
-
-nodes are represented by ids, edges by tuples where the first element is the outgoing and the seconds element the receiving node
  */
 
 use std::f32::consts::PI;
 use std::f32;
 use core::num::FpCategory::Nan;
+use serde::{Deserialize, Serialize};
 use crate::polygon_test::PointInPolygonTest;
 
 // we could calculate the number of nodes during runtime
@@ -14,14 +13,14 @@ use crate::polygon_test::PointInPolygonTest;
 const NUMBER_NODES: usize = 1000;
 const NUMBER_NEIGHBORS: i32 = 4;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize, JsonSchema)]
 pub struct Edge {
     pub source: usize,
     pub target: usize,
     distance: i32,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize, JsonSchema, Debug)]
 pub struct Node {
     pub lat: f64,
     pub lon: f64,
