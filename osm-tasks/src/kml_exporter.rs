@@ -15,6 +15,10 @@ impl KML_export {
         };
     }
 
+    pub fn add_rect_with_size_one(&mut self, lon: i16, lat: i16, name: Option<String>) {
+        self.add_linestring(vec![(lon as f64, (lat + 1) as f64), ((lon+1) as f64, (lat+1) as f64),((lon+1)as f64, (lat) as f64),(lon as f64, lat as f64),(lon as f64, (lat + 1) as f64)], name);
+    }
+
     fn as_placemarker(name: Option<String>, geometry: Geometry) -> Kml {
         return Kml::Placemark(Placemark {
             name,
