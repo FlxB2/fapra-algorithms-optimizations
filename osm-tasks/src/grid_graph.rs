@@ -60,13 +60,13 @@ impl GridGraph {
         let d_theta: f64 = pi / (m_theta as f64);
         let d_phi: f64 = a / d_theta;
         let mut m_phi = 0;
-        let mut number_pref_azimuth_steps_last = 0;
+        let mut number_azimuth_steps_last_round = 0;
         let mut number_virtual_nodes_before_last_round = 0;
         // calculated in rad!!
         for m in (0..m_theta) {
             let polar = pi * ((m as f64) + 0.5) / (m_theta as f64);
             m_phi = ((2.0 * pi * (polar).sin() / d_phi).round() as i32);
-            let number_pref_azimuth_steps = (0..m_phi).len();
+            let number_azimuth_steps_this_round = (0..m_phi).len();
             //println!("Breitengrad: {} Punkte: {}, Indices: {:?}", m, m_phi, number_placed_nodes..(number_placed_nodes+m_phi as usize));
             let number_virtual_nodes_at_start_of_this_round = number_virtual_nodes;
             // Do point in polygon test in parallel and collect results
@@ -91,10 +91,10 @@ impl GridGraph {
                 if number_virtual_nodes < NUMBER_NODES {
                     nodes[number_graph_nodes] = source_node;
                     virtual_nodes_to_index[number_virtual_nodes] = Some(number_graph_nodes as u32);
-                    if number_pref_azimuth_steps_last > 3 {
-                        let last_round_factor = ((number_pref_azimuth_steps as f64 - n_float) / (number_pref_azimuth_steps as f64));
+                    if number_azimuth_steps_last_round > 3 {
+                        let last_round_factor = ((number_azimuth_steps_this_round as f64 - n_float) / (number_azimuth_steps_this_round as f64));
 
-                        let offset_float = (n_float + (number_pref_azimuth_steps_last as f64) * last_round_factor);
+                        let offset_float = (n_float + (number_azimuth_steps_last_round as f64) * last_round_factor);
 
                         //let node_floor = number_placed_nodes - (offset_float.floor() + if last_round_factor < 1.0 {number_pref_azimuth_steps_last as f64} else {0.0}) as usize;
                         //let node_above = if calculate_length_between_points_on_sphere_with_radius_one(&source_node, &nodes[number_placed_nodes-offset_float.floor() as usize])
@@ -110,25 +110,25 @@ impl GridGraph {
                         if virtual_index_top_left_node == virtual_index_top_right_node {
                             // node is exactly above -> also add edges to the nodes right and left
                             // Todo: handle wrap around if index is below first node of the last circle
-                            add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_pref_azimuth_steps_last, virtual_index_top_right_node -1)]);
-                            add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_pref_azimuth_steps_last,virtual_index_top_right_node)]);
-                            add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_pref_azimuth_steps_last,virtual_index_top_right_node +1)]);
+                            add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_right_node -1)]);
+                            add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_right_node)]);
+                            add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_right_node +1)]);
                         } else {
                             // add edges to the two nearest nodes above
 
                             // Todo: handle wrap around if index is below first node of the last circle
-                            let distance_right = add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_pref_azimuth_steps_last,virtual_index_top_right_node)]);
-                            let distance_left = add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_pref_azimuth_steps_last,virtual_index_top_left_node)]);
+                            let distance_right = add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_right_node)]);
+                            let distance_left = add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_left_node)]);
                             // insert third node on the other side of the nearest node
                             match (distance_right, distance_left) {
-                                (None, Some(_)) => {add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_pref_azimuth_steps_last,virtual_index_top_left_node - 1)]);}
-                                (Some(_), None) => {add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_pref_azimuth_steps_last,virtual_index_top_right_node + 1)]);}
+                                (None, Some(_)) => {add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_left_node - 1)]);}
+                                (Some(_), None) => {add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_right_node + 1)]);}
                                 (Some(dst_right), Some(dst_left)) => {
                                     if dst_left != dst_right {
                                         if dst_left > dst_right {
-                                            add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_pref_azimuth_steps_last,virtual_index_top_right_node + 1)]);
+                                            add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_right_node + 1)]);
                                         } else {
-                                            add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_pref_azimuth_steps_last,virtual_index_top_left_node - 1)]);
+                                            add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_left_node - 1)]);
                                         }
                                     }
                                 }
@@ -137,12 +137,6 @@ impl GridGraph {
                         }
                         // add edge to neighbor
                        add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[virtual_node_index_neighbor]);
-                            if (number_virtual_nodes - offset_float.floor() as usize) >= number_virtual_nodes_at_start_of_this_round {
-                            println!("{}:floor {}", number_virtual_nodes, number_virtual_nodes - offset_float.floor() as usize);
-                        }
-                        if (number_virtual_nodes - offset_float.ceil() as usize) >= number_virtual_nodes_at_start_of_this_round {
-                            println!("{}:ceil {}", number_virtual_nodes, number_virtual_nodes - offset_float.ceil() as usize);
-                        }
                     }
                     number_graph_nodes += 1;
                 }
@@ -150,7 +144,7 @@ impl GridGraph {
                 }
                 number_virtual_nodes += 1;
             });
-            number_pref_azimuth_steps_last = number_pref_azimuth_steps;
+            number_azimuth_steps_last_round = number_azimuth_steps_this_round;
             number_virtual_nodes_before_last_round = number_virtual_nodes;
         }
         let mut offsets = Vec::with_capacity(edges.len()+1);
@@ -202,7 +196,7 @@ fn calc_index_modulo(round_start_index: &usize, nodes_in_rounds: &usize, mut ind
 const EARTH_RADIUS: f64 = 6_378_137_f64;
 
 fn calculate_length_between_points_on_sphere(p1: &Node, p2: &Node) -> f64 {
-    EARTH_RADIUS*((p2.lon - p1.lon).powf(2.0) * ((p1.lat + p2.lat) / 2f64).cos().powf(2.0) * (p2.lat - p1.lat).powf(2.0)).sqrt()
+    EARTH_RADIUS*((p2.lon - p1.lon).powf(2.0) * ((p1.lat + p2.lat) / 2f64).cos().powf(2.0) + (p2.lat - p1.lat).powf(2.0)).sqrt()
 }
 
 fn to_lat_lon(theta: f64, phi: f64) -> (f64, f64) {
