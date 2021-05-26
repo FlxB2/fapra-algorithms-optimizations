@@ -1,4 +1,4 @@
-use geo::Polygon;
+use geo::{Polygon, Rect};
 use quadtree_rs::{area::AreaBuilder, point::Point as qPoint, Quadtree};
 use crate::kml_exporter::KML_export;
 
@@ -108,7 +108,8 @@ impl PointInPolygonTest {
     }
 
     fn build_grid(&mut self) {
-        let mut grid = vec![GridEntry::Unset; 360 * 180];
+        // In the beginning, there is only water on the whole world.
+        let mut grid = vec![GridEntry::Outside; 360 * 180];
         for i in 0..1000 {
             let bounding_box = self.bounding_boxes[i];
             let polygon = &self.polygons[i];
@@ -128,18 +129,7 @@ impl PointInPolygonTest {
                 }
                 rects_with_points[((lon.floor() as i16 - x) + ((lat.floor() as i16 - y) * x_size)) as usize] = RectState::ContainsPoints;
             }
-
-            // try the corners of the bounding box, since it es likely, that one corner will completely outside of the polygon.
-            // this will likely find a bunch of bounds inside the bounding box but outside of the polygon
-            for (r_x, r_y) in vec![(0, 0), (x_size - 1, 0), (x_size - 1, y_size - 1), (0, y_size - 1)] {
-                PointInPolygonTest::mark_coherent_rects(&mut rects_with_points, r_x, r_y, x_size as usize, y_size as usize)
-                    .into_iter().for_each(|idx| {
-                    let p_y = idx as i16 / x_size;
-                    let p_x = idx as i16 - (p_y * x_size);
-                    PointInPolygonTest::insert_in_grid(&mut grid, GridEntry::Outside, p_x + x, p_y + y);
-                    //kml.rect( p_x + x , p_y + y, Some("Outside".parse().unwrap()));
-                });
-            }
+            // Iterate over the the grid and process every rect
             for r_y in 0..y_size {
                 for r_x in 0..x_size {
                     if rects_with_points[(r_x + (r_y * x_size)) as usize] != RectState::Initial {
@@ -164,6 +154,20 @@ impl PointInPolygonTest {
                 }
             }
         }
+        // fill remaining water area
+        /*
+        if let Some(some_rect_on_water) = grid.iter().find(|e|{*e == GridEntry::Border}){
+            let pw_y = some_rect_on_water as i16 / 360;
+            let pw_x = some_rect_on_water as i16 - (pw_y * 360);
+            let mut rects: Vec<RectState> = grid.iter().map(|e| {if *e == GridEntry::Outside || *e == GridEntry::Unset {RectState::Initial} else {RectState::Processed}}).collect();
+            let points = PointInPolygonTest::mark_coherent_rects(&mut rects, pw_x, pw_y, 360, 180);
+            points.into_iter().for_each(|idx| {
+                let p_y = idx as i16 / x_size;
+                let p_x = idx as i16 - (p_y * x_size);
+                PointInPolygonTest::insert_in_grid(&mut grid, GridEntry::Outside, p_x + x, p_y + y);
+            });
+        }*/
+
         /*
         let mut kml_poly = KML_export::init();
         let mut kml_outside = KML_export::init();
@@ -192,8 +196,7 @@ impl PointInPolygonTest {
             grid[idx] = entry;
             return;
         }
-        let current_entry = &grid[idx];
-        if *current_entry == GridEntry::Unset || (*current_entry == GridEntry::Outside && entry == GridEntry::Polygon) {
+        if grid[idx] == GridEntry::Outside && entry == GridEntry::Polygon {
             grid[idx] = entry;
         }
     }
@@ -262,7 +265,7 @@ impl PointInPolygonTest {
 
     fn check_grid(&self, (lon, lat): (f64, f64)) -> &GridEntry {
         if self.grid.is_none() {
-            return &GridEntry::Unset;
+            return &GridEntry::Border;
         }
         return self.grid.as_ref().unwrap().get(((lon.floor() as i16 + 180) as usize + ((lat.floor() as i16 + 90) as usize * 360))).unwrap();
     }
@@ -336,7 +339,6 @@ enum RectState {
 }
 #[derive(Clone, PartialEq, Eq, Copy)]
 enum GridEntry {
-    Unset,
     Polygon,
     Outside,
     Border
