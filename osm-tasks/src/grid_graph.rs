@@ -195,31 +195,14 @@ fn calculate_length_between_points_on_sphere(node1: &Node, node2: &Node) -> f64 
 }
 
 // expects lat/lon in degrees
-fn distance(lon1: f64, lat1: f64, lon2: f64, lat2: f64) -> f64 {
-    let lat1 = lat1 * ((PI / 180.0) as f64); // convert to rad
-    let lat2 = lat2 * ((PI / 180.0) as f64);
-    let lon1 = lon1 * ((PI / 180.0) as f64);
-    let lon2 = lon2 * ((PI / 180.0) as f64);
-    let dlat = lat2 - lat1;
-    let dlon = lon2 - lon1;
-    let a = (dlat / 2.0).sin().powf(2.0) + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powf(2.0);
+fn distance(lon1_deg: f64, lat1_deg: f64, lon2_deg: f64, lat2_deg: f64) -> f64 {
+    let lat1 = lat1_deg.to_radians();
+    let lat2 = lat2_deg.to_radians();
+    let lon1 = lon1_deg.to_radians();
+    let lon2 = lon2_deg.to_radians();
+    let dlat_sin = ((lat2 - lat1) / 2.0).sin();
+    let dlon_sin = ((lon2 - lon1) / 2.0).sin();
+    let a = dlat_sin * dlat_sin + lat1.cos() * lat2.cos() * dlon_sin * dlon_sin;
     let c = 2.0 * (a.sqrt()).asin();
     return EARTH_RADIUS * c;
-}
-
-fn to_lat_lon(theta: f64, phi: f64) -> (f64, f64) {
-    let radius_earth = 6345 as f64; // radius earth in km
-    // convert to cartesian first
-    let x = radius_earth * theta.sin() * phi.cos();
-    let y = radius_earth * theta.sin() * phi.sin();
-    let z = radius_earth * theta.cos();
-
-    // cartesian to wgs84 following the first answer
-    // p = 90-lat
-    // lat = 90-p
-    // https://gis.stackexchange.com/questions/287467/translate-cartesian-coordinates-to-wgs84-preferably-in-pyproj
-    let r = (x.powf(2.0) + y.powf(2.0)).sqrt() as f64;
-    let lat = (180.0 * (r / radius_earth).acos() / (PI as f64));
-    let lon = (180.0 * y.atan2(x) / (PI as f64));
-    (lon, lat)
 }
