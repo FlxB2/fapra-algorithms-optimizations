@@ -6,12 +6,51 @@ use crate::kml_exporter::KML_export;
 use crate::polygon_test::PointInPolygonTest;
 use osmpbf::ElementReader;
 use std::fs::File;
-use std::io::Write;
+use std::io::{Write, BufWriter, BufReader};
 use core::iter;
 use std::iter::FromIterator;
 use rand::distributions::{Distribution, Uniform};
 use std::slice::Iter;
+use std::path::Path;
+use crate::grid_graph::GridGraph;
+use crate::grid_graph;
+use std::ffi::OsStr;
 
+pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S) -> GridGraph {
+    let osm_path= Path::new(osm_path_name);
+    let osm_name = osm_path.file_name().unwrap();
+    let mut graph_file_name = osm_name.to_str().unwrap().to_owned();
+    graph_file_name.push_str(".");
+    graph_file_name.push_str(&*grid_graph::NUMBER_NODES.to_string());
+    graph_file_name.push_str(".bin");
+    let path = osm_path.with_file_name(graph_file_name);
+    let disk_graph = load_graph_from_disk(&path);
+    let graph = if disk_graph.is_ok() {
+        let gra= disk_graph.unwrap();
+        println!("Loaded graph from disk \"{}\". Node count: {}", path.to_str().unwrap(), gra.nodes.len());
+        gra
+    } else {
+        let polygons = read_file(osm_path.to_str().unwrap());
+        let polygon_test = PointInPolygonTest::new(polygons);
+
+        // assign new value to the GRAPH reference
+        let gra = GridGraph::new(&polygon_test);
+        save_graph_to_disk(&path, &gra);
+        println!("Saved graph to disk");
+        gra
+    };
+    graph
+}
+
+fn save_graph_to_disk(path: &Path, graph: &GridGraph) {
+    let mut f = BufWriter::new(File::create("./graph.bin").unwrap());
+    bincode::serialize_into(&mut f, graph);
+}
+
+fn load_graph_from_disk(path: &Path) -> bincode::Result<GridGraph> {
+    let mut f = BufReader::new(File::open("./graph.bin")?);
+    bincode::deserialize_from(&mut f)
+}
 
 pub fn read_file(path: &str) -> Vec<Vec<(f64, f64)>> {
     let start_time = Instant::now();

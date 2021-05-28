@@ -1,5 +1,5 @@
 use crate::grid_graph::{GridGraph, Node};
-use crate::pbf_reader::read_file;
+use crate::pbf_reader::{read_file, read_or_create_graph};
 use crate::polygon_test::PointInPolygonTest;
 use crate::persistence::navigator::Navigator;
 use crate::persistence::in_memory_routing_repo::{ShipRoute, RouteRequest};
@@ -20,12 +20,13 @@ impl Navigator for InMemoryGraph {
     }
 
     fn build_graph(&mut self) {
-        let polygons = read_file("./planet-coastlines.osm.pbf");
+        /*let polygons =
         //let polygons = read_file("./iceland-coastlines.osm.pbf");
         let polygon_test = PointInPolygonTest::new(polygons);
-
+*/
         // assign new value to the GRAPH reference
-        self.graph = GridGraph::new(&polygon_test);
+        self.graph = read_or_create_graph("./iceland-coastlines.osm.pbf");
+        // self.graph = read_or_create_graph("./planet-coastlines.pbf.sec");
         self.dijkstra = Some(Dijkstra::new(self.graph.adjacency_matrix(), 3));
     }
 
