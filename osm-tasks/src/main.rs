@@ -7,7 +7,7 @@ extern crate rocket_okapi;
 #[macro_use]
 extern crate rocket_contrib;
 
-use std::{iter, mem, thread};
+use std::{iter, mem, thread, env};
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -38,6 +38,7 @@ use crate::persistence::in_memory_routing_repo::{InMemoryRoutingRepo, RouteReque
 use crate::persistence::navigator::Navigator;
 use crate::persistence::routing_repo::RoutingRepo;
 use crate::polygon_test::PointInPolygonTest;
+use crate::max_testing::max_testing;
 
 mod grid_graph;
 mod json_generator;
@@ -47,6 +48,7 @@ mod polygon_test;
 mod pbf_reader;
 mod persistence;
 mod navigator_use_case;
+mod max_testing;
 
 #[openapi]
 #[post("/build_graph")]
@@ -87,6 +89,13 @@ fn job_result(id: usize, navigator_use_case: State<NavigatorUseCase>) -> Option<
 }
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+    // for testing
+    if args.len() > 1 && args[1] == "max"{
+        println!("====== Testing mode. Will not start server!! =======");
+        max_testing();
+        return;
+    }
     rocket().launch();
 }
 
