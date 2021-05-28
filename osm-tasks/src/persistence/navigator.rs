@@ -5,6 +5,6 @@ pub trait Navigator: Send + Sync {
     where
         Self: Sized;
     fn build_graph(&mut self);
-    fn calculate_route(&self, route_request: RouteRequest) -> Option<ShipRoute>;
+    fn calculate_route(&mut self, route_request: RouteRequest) -> Option<ShipRoute>;
     fn get_number_nodes(&self) -> u32;
 }

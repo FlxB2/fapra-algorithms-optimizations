@@ -3,7 +3,7 @@ use quadtree_rs::{area::AreaBuilder, point::Point as qPoint, Quadtree};
 use crate::kml_exporter::KML_export;
 
 pub struct PointInPolygonTest {
-    pub bounding_boxes: Vec<(f64, f64, f64, f64)>,
+    bounding_boxes: Vec<(f64, f64, f64, f64)>,
     polygons: Vec<Vec<(f64, f64)>>,
     quadtree: Quadtree<i16, i32>,
     grid: Option<Vec<GridEntry>>
@@ -40,6 +40,8 @@ impl PointInPolygonTest {
         polygon_test.build_grid();
         return polygon_test;
     }
+
+
 
     fn check_point_between_edges((point_lon, point_lat): &(f64, f64), (v1_lon, v1_lat): &(f64, f64), (v2_lon, v2_lat): &(f64, f64)) -> bool {
         if v1_lon == v2_lon {
@@ -110,13 +112,13 @@ impl PointInPolygonTest {
     fn build_grid(&mut self) {
         // In the beginning, there is only water on the whole world.
         let mut grid = vec![GridEntry::Outside; 360 * 180];
-        for i in 0..1000 {
+        for i in 0..self.bounding_boxes.len() {
             let bounding_box = self.bounding_boxes[i];
             let polygon = &self.polygons[i];
             let x = bounding_box.0.floor() as i16;
             let y = bounding_box.2.floor() as i16;
-            let x_size = bounding_box.1.ceil() as i16 - x;
-            let y_size = bounding_box.3.ceil() as i16 - y;
+            let x_size = bounding_box.1.floor() as i16 + 1 - x;
+            let y_size = bounding_box.3.floor() as i16 + 1 - y;
             let mut rects_with_points = vec![RectState::Initial; (x_size * y_size) as usize];
             // find rects containing points
             for (lon, lat) in polygon {
@@ -127,6 +129,7 @@ impl PointInPolygonTest {
                     rects_with_points[((179 - x) + ((lat.floor() as i16 - y) * x_size)) as usize] = RectState::ContainsPoints;
                     continue
                 }
+                //println!("lon {}, let {}, index poly {}, x {}, y {}, xsize {}, ysize {}", lon, lat, i,x,y,x_size,y_size );
                 rects_with_points[((lon.floor() as i16 - x) + ((lat.floor() as i16 - y) * x_size)) as usize] = RectState::ContainsPoints;
             }
             // Iterate over the the grid and process every rect
@@ -275,11 +278,6 @@ impl PointInPolygonTest {
             println!("Point at 180. Map to -180: ({}, {})", point_lon, point_lat);
             point_lon = -180.0;
         }
-        if point_lat < -85.11 {
-            // MM: fixed
-            // hit south pole, but there is no polygon
-            return true;
-        }
         let mut intersection_count_even = true;
         //let mut intersections: Vec<((f64, f64), (f64, f64))> = vec![];
         for polygon_idx in polygon_indices {
@@ -320,6 +318,10 @@ impl PointInPolygonTest {
     }
 
     pub fn check_intersection(&self, point: (f64, f64)) -> bool {
+        if point.1 < -85.11 {
+            // hit south pole, but there is no polygon
+            return true;
+        }
         // shortcut: First check grid
         let gridEntry = self.check_grid(point.clone());
         if *gridEntry == GridEntry::Polygon || *gridEntry == GridEntry::Outside {
@@ -329,6 +331,9 @@ impl PointInPolygonTest {
         let polygons_to_check = self.check_intersecting_bounding_boxes(point.clone());
         // check these polygons with point in polygon test
         self.check_point_in_polygons(point, polygons_to_check)
+    }
+    pub fn polygons(&self) -> &Vec<Vec<(f64, f64)>> {
+        &self.polygons
     }
 }
 #[derive(Clone, PartialEq, Eq, Copy)]

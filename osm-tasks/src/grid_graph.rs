@@ -7,10 +7,11 @@ use std::f64;
 use serde::{Deserialize, Serialize};
 use crate::polygon_test::PointInPolygonTest;
 use rayon::prelude::*;
+use crate::dijkstra::AdjacencyMatrix;
 
 // we could calculate the number of nodes during runtime
 // even better: fixed number at compile time
-const NUMBER_NODES: usize = 10000;
+const NUMBER_NODES: usize = 1000000;
 
 #[derive(Clone, Copy, Serialize, Deserialize, JsonSchema)]
 pub struct Edge {
@@ -42,6 +43,17 @@ pub struct GridGraph {
 }
 
 impl GridGraph {
+
+    pub fn adjacency_matrix(&self) -> AdjacencyMatrix {
+        let mut edges_and_distances = vec![u32::MAX; self.edges.len() * 2];
+        self.edges.iter().enumerate().for_each(|(i, edge)| {
+            edges_and_distances[i * 2] = edge.target;
+            edges_and_distances[i * 2 + 1] = edge.distance;
+        });
+        let edges_and_distances_offsets: Vec<u32> = self.offsets.iter().map(|i|{i*2}).collect();
+        AdjacencyMatrix::new(edges_and_distances_offsets, edges_and_distances)
+    }
+
     pub fn default() -> GridGraph {
         GridGraph {
             number_nodes: 0,

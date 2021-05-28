@@ -23,23 +23,45 @@ impl DummyGraph {
             edges,
         }
     }
-}
 
-impl<'a> GraphInterface<'a> for DummyGraph {
-    fn get_neighbors_of_node_and_distances(&'a self, node: u32) -> &'a [u32] {
+    fn get_neighbors_of_node_and_distances(&self, node: u32) -> &[u32] {
         let start_offset = self.offsets[node as usize] as usize;
         let next_node_offset = self.offsets[node as usize + 1] as usize;
         &self.edges[start_offset..next_node_offset]
     }
 
-    fn get_nodes_count(&'a self) -> u32 {
+    fn get_nodes_count(& self) -> u32 {
         self.offsets.len() as u32 - 1
     }
 }
 
+/// Compact GridGraph which uses adjacency list with primitive types to store the graph
+pub struct AdjacencyMatrix {
+    edges_and_distances_offsets: Vec<u32>,
+    edges_and_distances: Vec<u32>
+}
 
-pub(crate) struct Dijkstra<'a> {
-    graph_ref: &'a dyn GraphInterface<'a>,
+impl AdjacencyMatrix {
+    pub fn new(edges_and_distances_offsets: Vec<u32>, edges_and_distances: Vec<u32>) -> AdjacencyMatrix {
+        AdjacencyMatrix { edges_and_distances_offsets, edges_and_distances }
+    }
+
+    pub fn edges_and_distances_offsets(&self) -> &Vec<u32>{
+        &self.edges_and_distances_offsets
+    }
+    pub fn edges_and_distances(&self) -> &Vec<u32> {
+        &self.edges_and_distances
+    }
+    pub(crate) fn get_neighbors_of_node_and_distances(&self, node: u32) -> &[u32] {
+        &self.edges_and_distances[(self.edges_and_distances_offsets[node as usize] as usize)..(self.edges_and_distances_offsets[node as usize + 1] as usize)]
+    }
+    pub(crate) fn get_nodes_count(&self) -> u32 {
+        self.edges_and_distances_offsets.len() as u32 - 1
+    }
+}
+
+pub(crate) struct Dijkstra {
+    graph_ref: AdjacencyMatrix,
     heap: BinaryHeap<HeapItem>,
     distances: Vec<u32>,
     previous_nodes: Vec<u32>,
@@ -80,13 +102,8 @@ impl Ord for HeapItem {
     }
 }
 
-pub trait GraphInterface<'a>: {
-    fn get_neighbors_of_node_and_distances(&'a self, node: u32) -> &'a [u32];
-    fn get_nodes_count(&'a self) -> u32;
-}
-
-impl<'a> Dijkstra<'a> {
-    pub fn new<T: GraphInterface<'a>>(graph: &'a T, source_node: u32) -> Dijkstra {
+impl Dijkstra {
+    pub fn new(graph: AdjacencyMatrix, source_node: u32) -> Dijkstra {
         //println!("New dijkstra instance with source node {}", source_node);
         let number_of_nodes = graph.get_nodes_count() as usize;
         // Todo: Ist es sinnvoll den heap mit der Anzahl der Knoten zu initialisieren?
@@ -117,40 +134,48 @@ impl<'a> Dijkstra<'a> {
         self.previous_nodes.fill(u32::MAX);
     }
 
-    pub fn find_route(&mut self, destination_node: &u32) -> (Vec<u32>, u32) {
-        if self.distances[*destination_node as usize] != u32::MAX {
-            return (self.traverse_route(destination_node), self.distances[*destination_node as usize]);
+    pub fn find_route(&mut self, destination_node: u32) -> Option<(Vec<u32>, u32)> {
+        if self.distances[destination_node as usize] != u32::MAX {
+            return Some((self.traverse_route(&destination_node), self.distances[destination_node as usize]));
         }
-        self.dijkstra(destination_node);
-        (self.traverse_route(destination_node), self.distances[*destination_node as usize])
+        self.dijkstra(&destination_node);
+        if self.distances[destination_node as usize] != u32::MAX {
+            Some((self.traverse_route(&destination_node), self.distances[destination_node as usize]))
+        } else {
+            None
+        }
     }
 
     fn dijkstra(&mut self, destination_node: &u32) {
         loop {
-            let heap_element = self.heap.pop().expect(&*format!("Heap is empty but dest node not found. src {}, dest {}", self.source_node, destination_node));
-            //println!("Popped element from heap {}", heap_element);
-            if heap_element.distance >= self.distances[heap_element.node_id as usize] {
-                //println!("Skipping heap element {:?} because lower distance is already set: {}", heap_element, self.distances[heap_element.node_id as usize]);
-                continue;
-            }
-            self.previous_nodes[heap_element.node_id as usize] = heap_element.previous_node;
-            self.distances[heap_element.node_id as usize] = heap_element.distance;
-            let neighbors_and_distances = self.graph_ref.get_neighbors_of_node_and_distances(heap_element.node_id);
-            for i in (0..neighbors_and_distances.len()).step_by(2) {
-                let next_node = neighbors_and_distances[i];
-                let next_node_distance = neighbors_and_distances[i + 1];
-                if self.distances[next_node as usize] == u32::MAX {
-                    //println!("add edge form {} to {} with dist {}", heap_element.node_id, next_node, next_node_distance);
-                    self.heap.push(HeapItem {
-                        node_id: next_node,
-                        distance: next_node_distance + heap_element.distance,
-                        previous_node: heap_element.node_id,
-                    });
+            if let Some(heap_element) = self.heap.pop() {
+                //println!("Popped element from heap {}", heap_element);
+                if heap_element.distance >= self.distances[heap_element.node_id as usize] {
+                    //println!("Skipping heap element {:?} because lower distance is already set: {}", heap_element, self.distances[heap_element.node_id as usize]);
+                    continue;
                 }
-            }
-            if *destination_node == heap_element.node_id {
-                // found dest
-                break;
+                self.previous_nodes[heap_element.node_id as usize] = heap_element.previous_node;
+                self.distances[heap_element.node_id as usize] = heap_element.distance;
+                let neighbors_and_distances = self.graph_ref.get_neighbors_of_node_and_distances(heap_element.node_id);
+                for i in (0..neighbors_and_distances.len()).step_by(2) {
+                    let next_node = neighbors_and_distances[i];
+                    let next_node_distance = neighbors_and_distances[i + 1];
+                    if self.distances[next_node as usize] == u32::MAX {
+                        //println!("add edge form {} to {} with dist {}", heap_element.node_id, next_node, next_node_distance);
+                        self.heap.push(HeapItem {
+                            node_id: next_node,
+                            distance: next_node_distance + heap_element.distance,
+                            previous_node: heap_element.node_id,
+                        });
+                    }
+                }
+                if *destination_node == heap_element.node_id {
+                    // found dest
+                    break;
+                }
+            } else {
+                println!("Heap is empty but dest node not found. src {}, dest {}", self.source_node, destination_node);
+                return;
             }
         }
     }
@@ -169,17 +194,19 @@ impl<'a> Dijkstra<'a> {
 }
 
 pub(crate) fn main() {
+
     let graph = DummyGraph::init();
     let source_node = 0;
     let target_node = 0;
-    let mut dijkstra = Dijkstra::new(&graph, source_node);
-    println!("Route from {} to {} is {:?}", source_node, target_node, dijkstra.find_route(&target_node));
     let node_count = graph.get_nodes_count();
+    let matrix = AdjacencyMatrix::new(graph.offsets, graph.edges);
+    let mut dijkstra = Dijkstra::new(matrix, source_node);
+    println!("Route from {} to {} is {:?}", source_node, target_node, dijkstra.find_route(target_node).unwrap());
     for i in 0..node_count {
         let mut distances = vec![u32::MAX; node_count as usize];
         dijkstra.change_source_node(i);
         for j in 0..node_count {
-            let res = dijkstra.find_route(&j);
+            let res = dijkstra.find_route(j).unwrap();
             distances[j as usize] = res.1;
         }
         println!("Routes from {}: {:?}", i, distances);

@@ -47,6 +47,12 @@ pub struct ShipRoute {
     nodes: Vec<Node>,
 }
 
+impl ShipRoute {
+    pub fn new(nodes: Vec<Node>) -> ShipRoute {
+        ShipRoute { nodes }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Status {
