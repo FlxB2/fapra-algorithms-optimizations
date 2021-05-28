@@ -158,6 +158,9 @@ impl GridGraph {
         println!("number placed nodes {}", number_graph_nodes);
         println!("number edges {}", flattened_edges.len());
 
+        // Remove unset nodes from nodes array
+        nodes.truncate(number_graph_nodes);
+
         GridGraph {
             number_nodes: number_graph_nodes as i64,
             edges: flattened_edges,
