@@ -2,9 +2,8 @@
 simple grid graph representation following a classic adjacency list
  */
 
-use std::f32::consts::PI;
-use std::f32;
-use core::num::FpCategory::Nan;
+use std::f64::consts::PI;
+use std::f64;
 use serde::{Deserialize, Serialize};
 use crate::polygon_test::PointInPolygonTest;
 use rayon::prelude::*;
@@ -61,10 +60,9 @@ impl GridGraph {
 
         // algorithm taken from here https://www.cmu.edu/biolphys/deserno/pdf/sphere_equi.pdf
         // number of nodes is only very close not equal to NUMBER_NODES
-        let N = NUMBER_NODES as f64;
         let pi = PI as f64;
         let radius_earth: f64 = 1.0; // in km
-        let a: f64 = 4.0 * pi * (radius_earth.powf(2.0) / N);
+        let a: f64 = 4.0 * pi * (radius_earth.powf(2.0) / NUMBER_NODES as f64);
         let d: f64 = a.sqrt();
         let m_theta = (pi / d).round() as i32;
         let d_theta: f64 = pi / (m_theta as f64);
