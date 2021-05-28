@@ -22,7 +22,7 @@ impl Navigator for InMemoryGraph {
         let polygon_test = PointInPolygonTest::new(polygons);
 
         // assign new value to the GRAPH reference
-        self.graph = GridGraph::new(polygon_test);
+        self.graph = GridGraph::new(&polygon_test);
     }
 
     fn calculate_route(&self, route_request: RouteRequest) -> Option<ShipRoute> {
