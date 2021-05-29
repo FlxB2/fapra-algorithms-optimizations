@@ -43,12 +43,12 @@ pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S) 
 }
 
 fn save_graph_to_disk(path: &Path, graph: &GridGraph) {
-    let mut f = BufWriter::new(File::create("./graph.bin").unwrap());
+    let mut f = BufWriter::new(File::create(path).unwrap());
     bincode::serialize_into(&mut f, graph);
 }
 
 fn load_graph_from_disk(path: &Path) -> bincode::Result<GridGraph> {
-    let mut f = BufReader::new(File::open("./graph.bin")?);
+    let mut f = BufReader::new(File::open(path)?);
     bincode::deserialize_from(&mut f)
 }
 
