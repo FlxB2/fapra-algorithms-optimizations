@@ -27,7 +27,7 @@ impl Navigator for InMemoryGraph {
         // assign new value to the GRAPH reference
         self.graph = read_or_create_graph("./iceland-coastlines.osm.pbf");
         // self.graph = read_or_create_graph("./planet-coastlines.pbf.sec");
-        self.dijkstra = Some(Dijkstra::new(self.graph.adjacency_matrix(), 3));
+        self.dijkstra = Some(Dijkstra::new(self.graph.adjacency_array(), 3));
     }
 
     fn calculate_route(&mut self, route_request: RouteRequest) -> Option<ShipRoute> {

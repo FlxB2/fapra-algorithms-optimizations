@@ -36,14 +36,14 @@ impl DummyGraph {
 }
 
 /// Compact GridGraph which uses adjacency list with primitive types to store the graph
-pub struct AdjacencyMatrix {
+pub struct AdjacencyArray {
     edges_and_distances_offsets: Vec<u32>,
     edges_and_distances: Vec<u32>
 }
 
-impl AdjacencyMatrix {
-    pub fn new(edges_and_distances_offsets: Vec<u32>, edges_and_distances: Vec<u32>) -> AdjacencyMatrix {
-        AdjacencyMatrix { edges_and_distances_offsets, edges_and_distances }
+impl AdjacencyArray {
+    pub fn new(edges_and_distances_offsets: Vec<u32>, edges_and_distances: Vec<u32>) -> AdjacencyArray {
+        AdjacencyArray { edges_and_distances_offsets, edges_and_distances }
     }
 
     pub fn edges_and_distances_offsets(&self) -> &Vec<u32>{
@@ -61,7 +61,7 @@ impl AdjacencyMatrix {
 }
 
 pub(crate) struct Dijkstra {
-    graph_ref: AdjacencyMatrix,
+    graph_ref: AdjacencyArray,
     heap: BinaryHeap<HeapItem>,
     distances: Vec<u32>,
     previous_nodes: Vec<u32>,
@@ -103,7 +103,7 @@ impl Ord for HeapItem {
 }
 
 impl Dijkstra {
-    pub fn new(graph: AdjacencyMatrix, source_node: u32) -> Dijkstra {
+    pub fn new(graph: AdjacencyArray, source_node: u32) -> Dijkstra {
         //println!("New dijkstra instance with source node {}", source_node);
         let number_of_nodes = graph.get_nodes_count() as usize;
         // Todo: Ist es sinnvoll den heap mit der Anzahl der Knoten zu initialisieren?
@@ -199,8 +199,8 @@ pub(crate) fn main() {
     let source_node = 0;
     let target_node = 0;
     let node_count = graph.get_nodes_count();
-    let matrix = AdjacencyMatrix::new(graph.offsets, graph.edges);
-    let mut dijkstra = Dijkstra::new(matrix, source_node);
+    let adjacency_array = AdjacencyArray::new(graph.offsets, graph.edges);
+    let mut dijkstra = Dijkstra::new(adjacency_array, source_node);
     println!("Route from {} to {} is {:?}", source_node, target_node, dijkstra.find_route(target_node).unwrap());
     for i in 0..node_count {
         let mut distances = vec![u32::MAX; node_count as usize];

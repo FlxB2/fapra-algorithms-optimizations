@@ -7,7 +7,7 @@ use std::f64;
 use serde::{Deserialize, Serialize};
 use crate::polygon_test::PointInPolygonTest;
 use rayon::prelude::*;
-use crate::dijkstra::AdjacencyMatrix;
+use crate::dijkstra::AdjacencyArray;
 
 // we could calculate the number of nodes during runtime
 // even better: fixed number at compile time
@@ -32,6 +32,7 @@ impl Into<(f64,f64)> for Node {
     }
 }
 
+#[derive( Serialize, Deserialize)]
 pub struct GridGraph {
     pub number_nodes: i64,
     // index equals node id
@@ -44,14 +45,15 @@ pub struct GridGraph {
 
 impl GridGraph {
 
-    pub fn adjacency_matrix(&self) -> AdjacencyMatrix {
+    /// Generates an adjacency array representation of the edges of this graph
+    pub fn adjacency_array(&self) -> AdjacencyArray {
         let mut edges_and_distances = vec![u32::MAX; self.edges.len() * 2];
         self.edges.iter().enumerate().for_each(|(i, edge)| {
             edges_and_distances[i * 2] = edge.target;
             edges_and_distances[i * 2 + 1] = edge.distance;
         });
         let edges_and_distances_offsets: Vec<u32> = self.offsets.iter().map(|i|{i*2}).collect();
-        AdjacencyMatrix::new(edges_and_distances_offsets, edges_and_distances)
+        AdjacencyArray::new(edges_and_distances_offsets, edges_and_distances)
     }
 
     pub fn default() -> GridGraph {
@@ -113,6 +115,8 @@ impl GridGraph {
                         nodes[number_graph_nodes] = source_node;
                         virtual_nodes_to_index[number_virtual_nodes] = Some(number_graph_nodes as u32);
                         if number_azimuth_steps_last_round > 3 {
+
+                            // Use a rule of three like approach to calculate the virtual node index of the nearest nodes above (in the last round)
                             let offset_float = (n_float + (number_azimuth_steps_last_round as f64) * ((number_azimuth_steps_this_round as f64 - n_float) / (number_azimuth_steps_this_round as f64)));
 
                             let virtual_index_top_right_node = number_virtual_nodes - offset_float.floor() as usize;
