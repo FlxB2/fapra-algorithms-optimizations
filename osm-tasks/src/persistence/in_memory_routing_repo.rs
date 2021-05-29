@@ -68,3 +68,12 @@ pub struct RouteRequest {
     start: Node,
     end: Node,
 }
+
+impl RouteRequest {
+    pub fn start(&self) -> Node {
+        self.start
+    }
+    pub fn end(&self) -> Node {
+        self.end
+    }
+}

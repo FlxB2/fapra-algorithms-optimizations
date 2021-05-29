@@ -212,7 +212,7 @@ fn calculate_length_between_points_on_sphere(node1: &Node, node2: &Node) -> f64 
 }
 
 // expects lat/lon in degrees
-fn distance(lon1_deg: f64, lat1_deg: f64, lon2_deg: f64, lat2_deg: f64) -> f64 {
+pub fn distance(lon1_deg: f64, lat1_deg: f64, lon2_deg: f64, lat2_deg: f64) -> f64 {
     let lat1 = lat1_deg.to_radians();
     let lat2 = lat2_deg.to_radians();
     let lon1 = lon1_deg.to_radians();

@@ -49,6 +49,7 @@ mod pbf_reader;
 mod persistence;
 mod navigator_use_case;
 mod max_testing;
+mod nearest_neighbor;
 
 #[openapi]
 #[post("/build_graph")]
@@ -92,7 +93,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     // for testing
     if args.len() > 1 && args[1] == "max"{
-        println!("====== Testing mode. Will not start server!! =======");
+        println!("{spacer:?}\n  ====== Testing mode. Will not start server!! =======\n{spacer:?}",spacer=String::from_utf8(vec![b'='; 50]));
         max_testing();
         return;
     }
