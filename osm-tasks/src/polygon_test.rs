@@ -157,20 +157,6 @@ impl PointInPolygonTest {
                 }
             }
         }
-        // fill remaining water area
-        /*
-        if let Some(some_rect_on_water) = grid.iter().find(|e|{*e == GridEntry::Border}){
-            let pw_y = some_rect_on_water as i16 / 360;
-            let pw_x = some_rect_on_water as i16 - (pw_y * 360);
-            let mut rects: Vec<RectState> = grid.iter().map(|e| {if *e == GridEntry::Outside || *e == GridEntry::Unset {RectState::Initial} else {RectState::Processed}}).collect();
-            let points = PointInPolygonTest::mark_coherent_rects(&mut rects, pw_x, pw_y, 360, 180);
-            points.into_iter().for_each(|idx| {
-                let p_y = idx as i16 / x_size;
-                let p_x = idx as i16 - (p_y * x_size);
-                PointInPolygonTest::insert_in_grid(&mut grid, GridEntry::Outside, p_x + x, p_y + y);
-            });
-        }*/
-
         /*
         let mut kml_poly = KML_export::init();
         let mut kml_outside = KML_export::init();
@@ -274,6 +260,11 @@ impl PointInPolygonTest {
     }
 
     fn check_point_in_polygons(&self, (mut point_lon, point_lat): (f64, f64), polygon_indices: Vec<usize>) -> bool {
+        if point_lat < -85.11 {
+            // hit south pole, but there is no polygon
+            // this check is part of this method since this is used at the generation of the grid
+            return true;
+        }
         if point_lon as i16 == 180 {
             println!("Point at 180. Map to -180: ({}, {})", point_lon, point_lat);
             point_lon = -180.0;

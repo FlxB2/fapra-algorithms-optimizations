@@ -11,7 +11,7 @@ use crate::dijkstra::AdjacencyArray;
 
 // we could calculate the number of nodes during runtime
 // even better: fixed number at compile time
-const NUMBER_NODES: usize = 1000000;
+pub(crate) const NUMBER_NODES: usize = 1000000;
 
 #[derive(Clone, Copy, Serialize, Deserialize, JsonSchema)]
 pub struct Edge {
