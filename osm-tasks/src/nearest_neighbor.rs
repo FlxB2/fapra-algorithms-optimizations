@@ -69,22 +69,22 @@ impl NearestNeighbor {
         let mut radius = f64::MAX;
         let (center_x, center_y) = NearestNeighbor::get_x_y_for_index(center_cell);
         for y in vec![center_y as isize - distance_to_center as isize, center_y as isize + distance_to_center as isize] {
-            if y < 0 || y <= Y_SIZE as isize { continue; }
+            if y < 0 || y >= Y_SIZE as isize - 1 { continue; }
             for x in (center_x as isize - distance_to_center as isize)..(center_x as isize + distance_to_center as isize) {
                 let x_mod = ((x + X_SIZE as isize) % X_SIZE as isize) as usize; // X_SIZE that the result can not be negative
                 nearest_node_and_distance = NodeWithId::min(nearest_node_and_distance, self.find_nearest_neighbor_in_cell(NearestNeighbor::get_index_for_x_y(x_mod, y as usize), node));
                 let (cell_midpoint_lon, cell_midpoint_lat) = NearestNeighbor::calc_mid_point_of_cell(x_mod, y as usize);
-                radius.min(distance(node.lon, node.lat, cell_midpoint_lon, cell_midpoint_lat));
+                radius = radius.min(distance(node.lon, node.lat, cell_midpoint_lon, cell_midpoint_lat));
             }
         }
         for x in vec![center_x as isize - distance_to_center as isize, center_x as isize + distance_to_center as isize] {
             let x_mod = ((x + X_SIZE as isize) % X_SIZE as isize) as usize; // X_SIZE that the result can not be negative
             // the first and last element has been taken into account when iterating the x lines
             for y in (center_y as isize - distance_to_center as isize + 1)..(center_y as isize + distance_to_center as isize - 1) {
-                if y < 0 || y <= Y_SIZE as isize { continue; }
+                if y < 0 || y >= Y_SIZE as isize - 1 { continue; }
                 nearest_node_and_distance = NodeWithId::min(nearest_node_and_distance, self.find_nearest_neighbor_in_cell(NearestNeighbor::get_index_for_x_y(x_mod, y as usize), node));
                 let (cell_midpoint_lon, cell_midpoint_lat) = NearestNeighbor::calc_mid_point_of_cell(x_mod, y as usize);
-                radius.min(distance(node.lon, node.lat, cell_midpoint_lon, cell_midpoint_lat));
+                radius = radius.min(distance(node.lon, node.lat, cell_midpoint_lon, cell_midpoint_lat));
             }
         }
         (nearest_node_and_distance, if radius == f64::MAX { 0.0 } else { radius })
@@ -110,19 +110,7 @@ impl NearestNeighbor {
     fn calc_mid_point_of_cell(x: usize, y: usize) -> (f64, f64) {
         // Midpoint calculation taken from https://stackoverflow.com/a/4656937/7153128
         let (lon1_deg, lat1_deg) = NearestNeighbor::get_coords_of_x_y(x, y);
-        let (lon2_deg, lat2_deg) = NearestNeighbor::get_coords_of_x_y(x + 1, y + 1);
-        let d_lon = (lon2_deg - lon1_deg).to_radians();
-
-        //convert to radians
-        let lat1 = lat1_deg.to_radians();
-        let lat2 = lat2_deg.to_radians();
-        let lon1 = lon1_deg.to_radians();
-
-        let bx = lat2.cos() * d_lon.cos();
-        let by = lat2.cos() * d_lon.cos();
-        let lat3 = (lat1.sin() + lat2.sin()).atan2((lat1.cos() + bx).sqrt() * (lat1.cos() + bx) + by * by);
-        let lon3 = lon1 + by.atan2(lat1.cos() + bx);
-        (lon3, lat3)
+        (lon1_deg + (x as f64 / X_SIZE as f64) * 0.5, lat1_deg + (y as f64 / Y_SIZE as f64) * 0.5)
     }
 
     fn get_coords_of_x_y(x: usize, y: usize) -> (f64, f64) {
@@ -133,7 +121,7 @@ impl NearestNeighbor {
 
     #[inline]
     fn get_index_for_x_y(x: usize, y: usize) -> usize {
-        x + y * X_SIZE
+        x + (y * X_SIZE)
     }
 
     #[inline]
@@ -145,8 +133,8 @@ impl NearestNeighbor {
 
     fn get_cell_for_node(node: &Node) -> usize {
         let lon = if node.lon >= 180.0 { -180.0 } else { node.lon };
-        let x = ((lon + 180.0) / X_SIZE as f64).floor() as usize;
-        let y = ((node.lat + 90.0) / Y_SIZE as f64).floor() as usize;
+        let x = (((lon + 180.0) / 360.0) * X_SIZE as f64) as usize;
+        let y = (((node.lat + 90.0)/  180.0) * Y_SIZE as f64) as usize;
         NearestNeighbor::get_index_for_x_y(x, y)
     }
 }
