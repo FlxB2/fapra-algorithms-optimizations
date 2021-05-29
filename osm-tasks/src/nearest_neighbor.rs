@@ -108,7 +108,6 @@ impl NearestNeighbor {
     }
 
     fn calc_mid_point_of_cell(x: usize, y: usize) -> (f64, f64) {
-        // Midpoint calculation taken from https://stackoverflow.com/a/4656937/7153128
         let (lon1_deg, lat1_deg) = NearestNeighbor::get_coords_of_x_y(x, y);
         (lon1_deg + (x as f64 / X_SIZE as f64) * 0.5, lat1_deg + (y as f64 / Y_SIZE as f64) * 0.5)
     }
