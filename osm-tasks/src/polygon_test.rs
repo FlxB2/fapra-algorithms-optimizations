@@ -1,6 +1,8 @@
 use geo::{Polygon, Rect};
 use quadtree_rs::{area::AreaBuilder, point::Point as qPoint, Quadtree};
-use crate::kml_exporter::KML_export;
+use std::cmp::Ordering::Equal;
+
+const ANTARCTICA_MINIMUM_LAT: f64 = -85.05;
 
 pub struct PointInPolygonTest {
     bounding_boxes: Vec<(f64, f64, f64, f64)>,
@@ -36,14 +38,15 @@ impl PointInPolygonTest {
         // println!("Polygon test instance with {} polygons", polygons.len());
         let bounding_boxes: Vec<(f64, f64, f64, f64)> = polygons.iter().map(|polygon| PointInPolygonTest::calculate_bounding_box(polygon)).collect();
         let quadtree = PointInPolygonTest::build_quadtree(&bounding_boxes);
-        let mut polygon_test = PointInPolygonTest { bounding_boxes, polygons, quadtree, grid: None };
+        let mut polygon_test = PointInPolygonTest { bounding_boxes, polygons, quadtree, grid: None};
         polygon_test.build_grid();
         return polygon_test;
     }
 
-
-
+    // Todo: rename to check_intersect_edge
+    /// Checks the intersection of the edge with an edge from the point to the north pole
     fn check_point_between_edges((point_lon, point_lat): &(f64, f64), (v1_lon, v1_lat): &(f64, f64), (v2_lon, v2_lat): &(f64, f64)) -> bool {
+        // Algorithm based on https://trs.jpl.nasa.gov/handle/2014/41271
         if v1_lon == v2_lon {
             // Ignore north-south edges
             return false;
@@ -65,13 +68,13 @@ impl PointInPolygonTest {
         let intersection_lat_tan = (v1_lat_tan * ((point_lon_rad - v2_lon_rad).sin() / delta_v_lon_sin) - v2_lat_tan * ((point_lon_rad - v1_lon_rad).sin() / delta_v_lon_sin));
         if intersection_lat_tan == v1_lat_tan || intersection_lat_tan == v2_lat_tan {
             //special case: intersection is on one of the vertices
-            let (hit_vert_lon_rad, other_vert_lon_rad) = if intersection_lat_tan == v1_lat_tan { (v1_lon_rad, v2_lon_rad) } else { (v2_lon_rad, v1_lon_rad) };
+            let (hit_vert_lon_rad, other_vert_lon_rad) = if (intersection_lat_tan - v1_lat_tan).abs() <= f64::EPSILON { (v1_lon_rad, v2_lon_rad) } else { (v2_lon_rad, v1_lon_rad) };
             // Special case to handle rounding errors:
             // check if the longitude of the hit point matches the longitude of the intersection.
-            if point_lon_rad == hit_vert_lon_rad {
+            if (point_lon_rad - hit_vert_lon_rad).abs() <= f64::EPSILON {
                 // tread it as in polygon iff the other vertex is westward of the hit vertex
                 return (hit_vert_lon_rad - other_vert_lon_rad).sin() > 0f64;
-            } // else { println!("Speaial case. point lon {}, lat {}, v1 lon {}, lat {} v2 lon {} lat {}, intersection lat {}",point_lon, point_lat, v1_lon, v1_lat, v2_lon, v2_lat, intersection_lat_tan.atan().to_degrees()); }
+            }// else { println!("Speaial case. point lon {}, lat {}, v1 lon {}, lat {} v2 lon {} lat {}, intersection lat {}",point_lon, point_lat, v1_lon, v1_lat, v2_lon, v2_lat, intersection_lat_tan.atan().to_degrees()); }
         }
 
         // intersection must be between the vertices and not below the point
@@ -101,8 +104,8 @@ impl PointInPolygonTest {
             let bounding_box = bounding_boxes[i];
             let x = bounding_box.0.floor() as i16;
             let y = bounding_box.2.floor() as i16;
-            let x_size = bounding_box.1.ceil() as i16 - x;
-            let y_size = bounding_box.3.ceil() as i16 - y;
+            let x_size = bounding_box.1.floor() as i16 + 1 - x;
+            let y_size = bounding_box.3.floor() as i16 + 1 - y;
             let res = quadtree.insert(AreaBuilder::default()
                                           .anchor(qPoint { x: x + 180i16, y: y + 90i16 })
                                           .dimensions((x_size, y_size))
@@ -168,11 +171,11 @@ impl PointInPolygonTest {
             if grid[idx] == GridEntry::Polygon {
                 let p_y = idx as i16 / 360;
                 let p_x = idx as i16 - (p_y * 360);
-                kml_poly.rect( p_x - 180 , p_y - 90, Some(format!("Poly:{}", idx)));
+                kml_poly.add_rect_with_size_one( p_x - 180 , p_y - 90, Some(format!("Poly:{}", idx)));
             } else if grid[idx] == GridEntry::Outside {
                 let p_y = idx as i16 / 360;
                 let p_x = idx as i16 - (p_y * 360);
-                kml_outside.rect( p_x - 180 , p_y - 90, Some(format!("Outside:{}", idx)));
+                kml_outside.add_rect_with_size_one( p_x - 180 , p_y - 90, Some(format!("Outside:{}", idx)));
             }
         }
         kml_poly.write_file("poly_rects.kml".parse().unwrap());
@@ -263,48 +266,46 @@ impl PointInPolygonTest {
         return self.grid.as_ref().unwrap().get(((lon.floor() as i16 + 180) as usize + ((lat.floor() as i16 + 90) as usize * 360))).unwrap();
     }
 
-    fn check_point_in_polygons(&self, (mut point_lon, point_lat): (f64, f64), polygon_indices: Vec<usize>) -> bool {
-        if point_lat < -85.11 {
-            // hit south pole, but there is no polygon
-            // this check is part of this method since this is used at the generation of the grid
-            return true;
+    fn check_point_in_polygon(&self, (point_lon, point_lat): (f64, f64), polygon: &Vec<(f64,f64)>) -> bool {
+        //let mut intersections: Vec<((f64, f64), (f64, f64))> = vec![];
+        let mut intersection_count_even = true;
+        for i in 0..polygon.len() - 1 {
+            if polygon[i].1 < point_lat && polygon[i + 1].1 < point_lat {
+                continue;
+            }
+            if polygon[i] == (point_lon, point_lat) {
+                // Point is at the vertex -> we define this as within the polygon
+                return true;
+            }
+            if polygon[i].0 == polygon[i + 1].0 && polygon[i].0 == point_lon {
+                // MM: fixed
+                // north south edge. Check if the point is on this edge
+                if polygon[i].1.min(polygon[i + 1].1) < point_lat && polygon[i].1.max(polygon[i + 1].1) > point_lat {
+                    // point on this edge
+                    return true;
+                }
+            }
+            if PointInPolygonTest::check_point_between_edges(&(point_lon, point_lat), &polygon[i], &polygon[i + 1]) {
+                intersection_count_even = !intersection_count_even;
+                //intersections.push((polygon[i], polygon[i + 1]));
+            }
         }
+        //write_to_file("lines".parse().unwrap(), lines_to_json(intersections));
+        !intersection_count_even
+    }
+
+    fn check_point_in_polygons(&self, (mut point_lon, point_lat): (f64, f64), polygon_indices: Vec<usize>) -> bool {
         if point_lon as i16 == 180 {
             println!("Point at 180. Map to -180: ({}, {})", point_lon, point_lat);
             point_lon = -180.0;
         }
-        let mut intersection_count_even = true;
-        //let mut intersections: Vec<((f64, f64), (f64, f64))> = vec![];
         for polygon_idx in polygon_indices {
-            intersection_count_even = true;
             let polygon = &self.polygons[polygon_idx];
-            for i in 0..polygon.len() - 1 {
-                if polygon[i].1 < point_lat && polygon[i + 1].1 < point_lat {
-                    continue;
-                }
-                if polygon[i] == (point_lon, point_lat) {
-                    // Point is at the vertex -> we define this as within the polygon
-                    return true;
-                }
-                if polygon[i].0 == polygon[i+1].0 && polygon[i].0 == point_lon  {
-                    // MM: fixed
-                    // north south edge. Check if the point is on this edge
-                    if polygon[i].1.min(polygon[i+1].1) < point_lat && polygon[i].1.max(polygon[i+1].1) > point_lat {
-                        // point on this edge
-                        return true;
-                    }
-                }
-                if PointInPolygonTest::check_point_between_edges(&(point_lon, point_lat), &polygon[i], &polygon[i + 1]) {
-                    intersection_count_even = !intersection_count_even;
-                    //  intersections.push((polygon[i], polygon[i + 1]));
-                }
-            }
-            if !intersection_count_even {
-                break;
+            if self.check_point_in_polygon((point_lon, point_lat), &polygon) {
+                return true;
             }
         }
-        //write_to_file("lines".parse().unwrap(), lines_to_json(intersections));
-        return !intersection_count_even;
+        return false;
     }
     const EARTH_RADIUS: i32 = 6_378_137;
 
@@ -313,8 +314,8 @@ impl PointInPolygonTest {
     }
 
     pub fn check_intersection(&self, point: (f64, f64)) -> bool {
-        if point.1 < -85.11 {
-            // hit south pole, but there is no polygon
+        if point.1 <= ANTARCTICA_MINIMUM_LAT {
+            // hit south pole
             return true;
         }
         // shortcut: First check grid
