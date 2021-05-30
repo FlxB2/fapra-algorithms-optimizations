@@ -66,8 +66,12 @@ impl PointInPolygonTest {
         if intersection_lat_tan == v1_lat_tan || intersection_lat_tan == v2_lat_tan {
             //special case: intersection is on one of the vertices
             let (hit_vert_lon_rad, other_vert_lon_rad) = if intersection_lat_tan == v1_lat_tan { (v1_lon_rad, v2_lon_rad) } else { (v2_lon_rad, v1_lon_rad) };
-            // tread it as in polygon iff the other vertex is westward of the hit vertex
-            return (hit_vert_lon_rad - other_vert_lon_rad).sin() > 0f64;
+            // Special case to handle rounding errors:
+            // check if the longitude of the hit point matches the longitude of the intersection.
+            if point_lon_rad == hit_vert_lon_rad {
+                // tread it as in polygon iff the other vertex is westward of the hit vertex
+                return (hit_vert_lon_rad - other_vert_lon_rad).sin() > 0f64;
+            } // else { println!("Speaial case. point lon {}, lat {}, v1 lon {}, lat {} v2 lon {} lat {}, intersection lat {}",point_lon, point_lat, v1_lon, v1_lat, v2_lon, v2_lat, intersection_lat_tan.atan().to_degrees()); }
         }
 
         // intersection must be between the vertices and not below the point
