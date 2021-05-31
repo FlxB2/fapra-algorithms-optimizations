@@ -39,6 +39,7 @@ use crate::persistence::navigator::Navigator;
 use crate::persistence::routing_repo::RoutingRepo;
 use crate::polygon_test::PointInPolygonTest;
 use crate::max_testing::max_testing;
+use crate::cors::CORS;
 
 mod grid_graph;
 mod json_generator;
@@ -50,6 +51,7 @@ mod persistence;
 mod navigator_use_case;
 mod max_testing;
 mod nearest_neighbor;
+mod cors;
 
 #[openapi]
 #[post("/build_graph")]
@@ -65,15 +67,25 @@ fn test(navigator_use_case: State<NavigatorUseCase>) -> Json<u32> {
 
 // returns job id
 #[openapi]
-#[post("/route", format = "json", data = "<route_request>")]
-fn route(route_request: Json<RouteRequest>, navigator_use_case: State<NavigatorUseCase>) -> Json<Option<u32>> {
-    let id = navigator_use_case.calculate_route(route_request.0);
+#[get("/route?<lat_start>&<lon_start>&<lat_end>&<lon_end>")]
+fn route(lat_start: f64, lon_start: f64, lat_end: f64, lon_end: f64, navigator_use_case: State<NavigatorUseCase>) -> Json<Option<u32>> {
+    let route_request = RouteRequest {
+        start: Node {
+            lon: lon_start,
+            lat: lat_start
+        },
+        end: Node {
+            lon: lon_end,
+            lat: lat_end
+        }
+    };
+    let id = navigator_use_case.calculate_route(route_request);
     Json(id)
 }
 
 // true if job is finished, false if not
 #[openapi]
-#[get("/jobStatus/<id>")]
+#[get("/jobStatus?<id>")]
 fn job_status(id: usize, navigator_use_case: State<NavigatorUseCase>) -> Json<bool> {
     return Json(navigator_use_case.get_route(id).is_some());
 
@@ -107,6 +119,7 @@ fn rocket() -> rocket::Rocket {
     let navigator_mutex: Arc<Mutex<Box<dyn Navigator>>> = Arc::new(Mutex::new(Box::new(in_memory_navigator)));
     let navigator_use_case = NavigatorUseCase::new(Arc::clone(&navigator_mutex), Arc::clone(&routing_repo_mutex));
     rocket::ignite()
+        .attach(CORS)
         .manage(navigator_use_case)
         .mount("/", routes_with_openapi![job_status, job_result, route, build_graph, test])
         .mount(

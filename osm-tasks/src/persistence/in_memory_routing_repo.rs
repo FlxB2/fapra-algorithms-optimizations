@@ -65,8 +65,8 @@ pub(crate) struct Status {
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RouteRequest {
-    start: Node,
-    end: Node,
+    pub(crate) start: Node,
+    pub(crate) end: Node,
 }
 
 impl RouteRequest {

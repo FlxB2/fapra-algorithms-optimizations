@@ -20,7 +20,7 @@ impl NavigatorUseCase {
     pub(crate) fn build_graph(&self) {
         let clone = self.navigator.clone();
         thread::spawn(move || {
-            clone.lock().expect("nop").build_graph();
+            clone.lock().expect("could not lock graph").build_graph();
         });
     }
 

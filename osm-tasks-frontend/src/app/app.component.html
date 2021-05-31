@@ -1,5 +1,24 @@
 <html>
-<div class="map-container" leaflet
-     [leafletOptions]="options">
-</div>
+  <div class="split-l left">
+    <div class="map-container" id="map">
+    </div>
+  </div>
+  <div class="split-r right">
+    <div class="centered">
+      <button type="button" (click)="buildGraph()" class="btn btn-primary">
+        Build Graph
+      </button> <br>
+      start point latitude: <input [(ngModel)]="startLat">
+      start point longitude: <input [(ngModel)]="startLon">
+      end point latitude: <input [(ngModel)]="endLat">
+      end point longitude:  <input [(ngModel)]="endLon">
+      <button type="button" (click)="requestRoute()" class="btn btn-primary">
+        Request Route
+      </button><br>
+      request result by id: <input [(ngModel)]="jobId">
+      <button type="button" (click)="requestResult()" class="btn btn-primary">
+        Request Calculation Result
+      </button><br>
+    </div>
+  </div>
 </html>

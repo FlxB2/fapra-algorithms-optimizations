@@ -9,7 +9,6 @@ import { RequestBuilder } from '../request-builder';
 import { Observable } from 'rxjs';
 import { map, filter } from 'rxjs/operators';
 
-import { RouteRequest } from '../models/route-request';
 import { ShipRoute } from '../models/ship-route';
 
 @Injectable({
@@ -115,7 +114,7 @@ export class ApiService extends BaseService {
   /**
    * Path part for operation jobStatus
    */
-  static readonly JobStatusPath = '/jobStatus/{id}';
+  static readonly JobStatusPath = '/jobStatus';
 
   /**
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
@@ -129,7 +128,7 @@ export class ApiService extends BaseService {
 
     const rb = new RequestBuilder(this.rootUrl, ApiService.JobStatusPath, 'get');
     if (params) {
-      rb.path('id', params.id, {});
+      rb.query('id', params.id, {});
     }
 
     return this.http.request(rb.build({
@@ -167,15 +166,21 @@ export class ApiService extends BaseService {
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
    * To access only the response body, use `route()` instead.
    *
-   * This method sends `application/json` and handles request body of type `application/json`.
+   * This method doesn't expect any request body.
    */
   route$Response(params: {
-    body: RouteRequest
+    lat_start: number;
+    lon_start: number;
+    lat_end: number;
+    lon_end: number;
   }): Observable<StrictHttpResponse<number>> {
 
-    const rb = new RequestBuilder(this.rootUrl, ApiService.RoutePath, 'post');
+    const rb = new RequestBuilder(this.rootUrl, ApiService.RoutePath, 'get');
     if (params) {
-      rb.body(params.body, 'application/json');
+      rb.query('lat_start', params.lat_start, {});
+      rb.query('lon_start', params.lon_start, {});
+      rb.query('lat_end', params.lat_end, {});
+      rb.query('lon_end', params.lon_end, {});
     }
 
     return this.http.request(rb.build({
@@ -193,10 +198,13 @@ export class ApiService extends BaseService {
    * This method provides access to only to the response body.
    * To access the full response (for headers, for example), `route$Response()` instead.
    *
-   * This method sends `application/json` and handles request body of type `application/json`.
+   * This method doesn't expect any request body.
    */
   route(params: {
-    body: RouteRequest
+    lat_start: number;
+    lon_start: number;
+    lat_end: number;
+    lon_end: number;
   }): Observable<number> {
 
     return this.route$Response(params).pipe(
