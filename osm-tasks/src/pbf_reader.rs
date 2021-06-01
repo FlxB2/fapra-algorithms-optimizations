@@ -15,6 +15,7 @@ use std::path::Path;
 use crate::grid_graph::GridGraph;
 use crate::grid_graph;
 use std::ffi::OsStr;
+use crate::json_generator::JsonBuilder;
 
 pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, force_create: bool) -> GridGraph {
     let osm_path= Path::new(osm_path_name);
@@ -88,7 +89,7 @@ pub fn read_file(path: &str) -> Vec<Vec<(f64, f64)>> {
     let merge_start_time = Instant::now();
     let mut polygons: Vec<Vec<(f64, f64)>> = merge_ways_to_polygons1(coastlines, node_to_location);
 
-    println!("Merged polygons coastlines to {} polygons in {} sec", polygons.len(), merge_start_time.elapsed().as_secs());
+    println!("Merged coastlines to {} polygons in {} sec", polygons.len(), merge_start_time.elapsed().as_secs());
     check_polygons_closed(&polygons);
 
     // sort polygons by size so that we check the bigger before the smaller ones
@@ -113,6 +114,13 @@ pub fn read_file(path: &str) -> Vec<Vec<(f64, f64)>> {
     //graph.nodes.into_iter().foreach(|n| { kml.add_point(n, None) });
     //kml.write_file("kml.kml".parse().unwrap());
     return polygons;
+}
+
+pub fn read_file_and_export_geojson(osm_path: &str, geojson_path: &str) {
+    let polygons = read_file(osm_path);
+    let mut builder = JsonBuilder::new(geojson_path.parse().unwrap());
+    builder.add_polygons(polygons);
+    builder.build();
 }
 
 pub fn write_to_file(name: String, data: String) {

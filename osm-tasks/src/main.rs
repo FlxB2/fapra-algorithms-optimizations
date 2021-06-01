@@ -112,6 +112,11 @@ fn main() {
         return;
     }
     println!("Using file {} and a maximum number of {} nodes.", config.coastlines_file(), config.number_of_nodes());
+    if let Some(geojson_path) = config.geojson_export_path().as_ref() {
+        println!("Generate and export polygons as geoJSON");
+        pbf_reader::read_file_and_export_geojson(config.coastlines_file(), geojson_path);
+        println!("Generated geoJSON with polygons");
+    }
     rocket().launch();
 }
 

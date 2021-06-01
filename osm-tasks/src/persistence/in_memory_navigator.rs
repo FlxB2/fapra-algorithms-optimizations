@@ -37,9 +37,6 @@ impl Navigator for InMemoryGraph {
         // self.graph = read_or_create_graph("./planet-coastlines.pbf.sec");
         let config = Config::global();
         self.graph = read_or_create_graph(config.coastlines_file(), config.force_rebuild_graph());
-        if let Some(geojson_path) = config.geojson_export_path().as_ref() {
-            // TODO: export polygons to geoJSON
-        }
         self.dijkstra = Some(Dijkstra::new(self.graph.adjacency_array(), self.get_number_nodes() - 1));
         self.nearest_neighbor = Some(NearestNeighbor::new(&self.graph.nodes));
     }

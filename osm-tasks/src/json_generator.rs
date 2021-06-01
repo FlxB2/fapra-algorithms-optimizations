@@ -19,9 +19,11 @@ impl JsonFile {
         // polygons
         for polygon in &self.polygons {
             if polygon.len() > 1 {
-                // ensure first equals last ndoe
+                // ensure first equals last node
                 let mut temp = polygon.to_vec();
-                temp.push(*polygon.first().unwrap());
+                if polygon.first().unwrap() != polygon.last().unwrap() {
+                    temp.push(*polygon.first().unwrap());
+                }
 
                 let mut coords_string = format!("{:?}", temp).replace("(", "[").replace(")", "]");
                 coords_string = format!("{{
@@ -34,13 +36,12 @@ impl JsonFile {
                 ]
               }}
              }},", coords_string);
-                result = result + &*coords_string;
+                result.push_str(&*coords_string);
             }
         }
         // mutli points
         if self.points.len() > 0 {
-            let mut p = self.points.to_vec();
-            let mut coords_string = format!("{:?}", p).replace("(", "[").replace(")", "]");
+            let mut coords_string = format!("{:?}", self.points).replace("(", "[").replace(")", "]");
            // println!("{}", coords_string);
             coords_string = format!("{{
               \"type\": \"Feature\",
@@ -51,8 +52,10 @@ impl JsonFile {
                     {}
               }}
              }},", coords_string);
-            result = result + &*coords_string;
+            result.push_str(&*coords_string);
         }
+        // remove last comma
+        result.pop();
         result = result + "]}";
         result
     }
@@ -86,7 +89,7 @@ impl JsonBuilder {
     }
 
     pub fn build(&mut self) -> File {
-        let mut file = File::create("poly").expect("could not open file");
+        let mut file = File::create(&self.json.file_name).expect("could not open file");
         file.write_all(self.json.to_string().as_ref()).expect("could not write to file");
         file
     }
