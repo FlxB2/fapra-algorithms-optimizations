@@ -18,7 +18,10 @@
       request result by id: <input [(ngModel)]="jobId">
       <button type="button" (click)="requestResult()" class="btn btn-primary">
         Request Calculation Result
-      </button><br>
+      </button>
+    </div>
+    <div *ngFor="let alert of alerts">
+      <alert [type]="alert.type" [dismissOnTimeout]="alert.timeout">{{ alert.msg }}</alert>
     </div>
   </div>
 </html>

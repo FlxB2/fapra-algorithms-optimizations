@@ -68,7 +68,7 @@ fn test(navigator_use_case: State<NavigatorUseCase>) -> Json<u32> {
 // returns job id
 #[openapi]
 #[get("/route?<lat_start>&<lon_start>&<lat_end>&<lon_end>")]
-fn route(lat_start: f64, lon_start: f64, lat_end: f64, lon_end: f64, navigator_use_case: State<NavigatorUseCase>) -> Json<Option<u32>> {
+fn route(lat_start: f64, lon_start: f64, lat_end: f64, lon_end: f64, navigator_use_case: State<NavigatorUseCase>) -> Option<Json<Option<u32>>> {
     let route_request = RouteRequest {
         start: Node {
             lon: lon_start,
@@ -80,7 +80,10 @@ fn route(lat_start: f64, lon_start: f64, lat_end: f64, lon_end: f64, navigator_u
         }
     };
     let id = navigator_use_case.calculate_route(route_request);
-    Json(id)
+    if id.is_some() {
+        return Some(Json(id));
+    }
+    return None;
 }
 
 // true if job is finished, false if not

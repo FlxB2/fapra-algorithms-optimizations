@@ -6,6 +6,7 @@ import { LeafletModule } from '@asymmetrik/ngx-leaflet';
 import { HttpClientModule } from '@angular/common/http';
 import { ApiModule } from '../../generated/api.module';
 import { FormsModule } from '@angular/forms';
+import { AlertModule } from 'ngx-bootstrap/alert';
 
 // @ts-ignore
 @NgModule({
@@ -17,7 +18,8 @@ import { FormsModule } from '@angular/forms';
     LeafletModule,
     ApiModule.forRoot({ rootUrl: 'http://localhost:8000' }),
     HttpClientModule,
-    FormsModule
+    FormsModule,
+    AlertModule.forRoot()
   ],
   bootstrap: [AppComponent]
 })

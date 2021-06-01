@@ -25,6 +25,9 @@ impl NavigatorUseCase {
     }
 
     pub(crate) fn calculate_route(&self, route: RouteRequest) -> Option<u32> {
+        if self.get_number_nodes() == 0 {
+            return None;
+        }
         let clone = self.navigator.clone();
         let repo_clone = self.route_repo.clone();
         let mut job_id = None;
@@ -50,6 +53,9 @@ impl NavigatorUseCase {
     }
 
     pub(crate) fn get_route(&self, id: usize) -> Option<ShipRoute> {
+        if self.get_number_nodes() == 0 {
+            return None;
+        }
         let mut n = self.route_repo.lock().unwrap();
         n.get_route(id)
     }
