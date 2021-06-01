@@ -80,7 +80,7 @@ export class AppComponent implements AfterViewInit {
         this.currentRoute = polyline(array)
         this.map.addLayer(this.currentRoute);
         this.showAlert("Success! Route length in m: " + res.distance, "info");
-      }, () => this.showAlert("Could not fetch result did you build the graph? And did you check the id?", "danger")
+      }, () => this.showAlert("Could not fetch result did you build the graph? And did you check the id? Calculating a route might take a while", "danger")
     );
   }
 

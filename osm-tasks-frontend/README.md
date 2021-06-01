@@ -1,31 +1,19 @@
 # OsmTasksFrontend
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 8.3.24.
+This project is built with [Angular CLI](https://github.com/angular/angular-cli) version 8.3.24.
+
+## Prerequisites for Development
+
+An active LTS or maintenance LTS version of [Node.js](https://nodejs.org/en/about/releases/) 
+
+npm package manager, you can use this [guide](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm/)
 
 ## Development server
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
+Run `ng serve` to start the dev server. Navigate to `http://localhost:4200/`.
 
 ## Generate API Stubs
 
-With the backend running on  ` http://localhost:8000` run  ` ng run gen` . Files are generated to the  `generated/ ` folder
+We used [OpenAPI 3](https://swagger.io/specification/) to specify the API interfaces between the backend and the frontend. By using [ng-openapi-gen](https://www.npmjs.com/package/ng-openapi-gen) we can generate model interfaces and web service clients from the backend OpenAPI specification.
 
-## Code scaffolding
-
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
-
-## Build
-
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory. Use the `--prod` flag for a production build.
-
-## Running unit tests
-
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
-
-## Running end-to-end tests
-
-Run `ng e2e` to execute the end-to-end tests via [Protractor](http://www.protractortest.org/).
-
-## Further help
-
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI README](https://github.com/angular/angular-cli/blob/master/README.md).
+With the backend running on  ` http://localhost:8000` run  ` ng run gen` to generate new model interfaces and web service clients. Files are generated to the  `generated/ ` folder
