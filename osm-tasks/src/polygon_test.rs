@@ -1,4 +1,3 @@
-use geo::{Polygon, Rect};
 use quadtree_rs::{area::AreaBuilder, point::Point as qPoint, Quadtree};
 use std::cmp::Ordering::Equal;
 
@@ -74,7 +73,7 @@ impl PointInPolygonTest {
             if (point_lon_rad - hit_vert_lon_rad).abs() <= f64::EPSILON {
                 // tread it as in polygon iff the other vertex is westward of the hit vertex
                 return (hit_vert_lon_rad - other_vert_lon_rad).sin() > 0f64;
-            }// else { println!("Speaial case. point lon {}, lat {}, v1 lon {}, lat {} v2 lon {} lat {}, intersection lat {}",point_lon, point_lat, v1_lon, v1_lat, v2_lon, v2_lat, intersection_lat_tan.atan().to_degrees()); }
+            }// else { println!("Special case. point lon {}, lat {}, v1 lon {}, lat {} v2 lon {} lat {}, intersection lat {}",point_lon, point_lat, v1_lon, v1_lat, v2_lon, v2_lat, intersection_lat_tan.atan().to_degrees()); }
         }
 
         // intersection must be between the vertices and not below the point
@@ -106,7 +105,7 @@ impl PointInPolygonTest {
             let y = bounding_box.2.floor() as i16;
             let x_size = bounding_box.1.floor() as i16 + 1 - x;
             let y_size = bounding_box.3.floor() as i16 + 1 - y;
-            let res = quadtree.insert(AreaBuilder::default()
+            quadtree.insert(AreaBuilder::default()
                                           .anchor(qPoint { x: x + 180i16, y: y + 90i16 })
                                           .dimensions((x_size, y_size))
                                           .build().unwrap(), i as i32);
@@ -319,9 +318,9 @@ impl PointInPolygonTest {
             return true;
         }
         // shortcut: First check grid
-        let gridEntry = self.check_grid(point.clone());
-        if *gridEntry == GridEntry::Polygon || *gridEntry == GridEntry::Outside {
-            return *gridEntry == GridEntry::Polygon;
+        let grid_entry = self.check_grid(point.clone());
+        if *grid_entry == GridEntry::Polygon || *grid_entry == GridEntry::Outside {
+            return *grid_entry == GridEntry::Polygon;
         }
         // first get all intersecting bounding boxes
         let polygons_to_check = self.check_intersecting_bounding_boxes(point.clone());
