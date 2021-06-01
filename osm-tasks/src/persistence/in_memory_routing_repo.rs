@@ -44,12 +44,13 @@ impl RoutingRepo for InMemoryRoutingRepo {
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ShipRoute {
+    distance: u32,
     nodes: Vec<Node>,
 }
 
 impl ShipRoute {
-    pub fn new(nodes: Vec<Node>) -> ShipRoute {
-        ShipRoute { nodes }
+    pub fn new(nodes: Vec<Node>, distance: u32) -> ShipRoute {
+        ShipRoute { nodes, distance }
     }
 }
 

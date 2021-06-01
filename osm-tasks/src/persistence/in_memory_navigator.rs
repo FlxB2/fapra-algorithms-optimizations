@@ -43,7 +43,7 @@ impl Navigator for InMemoryGraph {
                 let route: Vec<u32> = route_and_distance.0;
                 let distance = route_and_distance.1;
                 let nodes_route: Vec<Node> = route.into_iter().map(|i| {self.graph.nodes[i as usize]}).collect();
-                return Some(ShipRoute::new(nodes_route));
+                return Some(ShipRoute::new(nodes_route, distance));
             }
         }
         None

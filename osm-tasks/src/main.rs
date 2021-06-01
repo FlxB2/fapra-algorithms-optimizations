@@ -91,7 +91,6 @@ fn route(lat_start: f64, lon_start: f64, lat_end: f64, lon_end: f64, navigator_u
 #[get("/jobStatus?<id>")]
 fn job_status(id: usize, navigator_use_case: State<NavigatorUseCase>) -> Json<bool> {
     return Json(navigator_use_case.get_route(id).is_some());
-
 }
 
 #[openapi]
