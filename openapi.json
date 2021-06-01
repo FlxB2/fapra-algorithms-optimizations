@@ -47,13 +47,13 @@
         }
       }
     },
-    "/jobStatus/{id}": {
+    "/jobStatus": {
       "get": {
         "operationId": "job_status",
         "parameters": [
           {
             "name": "id",
-            "in": "path",
+            "in": "query",
             "required": true,
             "schema": {
               "type": "integer",
@@ -77,18 +77,46 @@
       }
     },
     "/route": {
-      "post": {
+      "get": {
         "operationId": "route",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RouteRequest"
-              }
+        "parameters": [
+          {
+            "name": "lat_start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
             }
           },
-          "required": true
-        },
+          {
+            "name": "lon_start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "lat_end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "lon_end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -102,6 +130,9 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": ""
           }
         }
       }
@@ -145,27 +176,18 @@
           }
         }
       },
-      "RouteRequest": {
-        "type": "object",
-        "required": [
-          "end",
-          "start"
-        ],
-        "properties": {
-          "end": {
-            "$ref": "#/components/schemas/Node"
-          },
-          "start": {
-            "$ref": "#/components/schemas/Node"
-          }
-        }
-      },
       "ShipRoute": {
         "type": "object",
         "required": [
+          "distance",
           "nodes"
         ],
         "properties": {
+          "distance": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0.0
+          },
           "nodes": {
             "type": "array",
             "items": {
