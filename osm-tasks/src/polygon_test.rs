@@ -2,6 +2,7 @@ use quadtree_rs::{area::AreaBuilder, point::Point as qPoint, Quadtree};
 use std::cmp::Ordering::Equal;
 
 const ANTARCTICA_MINIMUM_LAT: f64 = -85.05;
+const EPSILON: f64 = f64::EPSILON;
 
 pub struct PointInPolygonTest {
     bounding_boxes: Vec<(f64, f64, f64, f64)>,
@@ -46,10 +47,10 @@ impl PointInPolygonTest {
     /// Checks the intersection of the edge with an edge from the point to the north pole
     fn check_point_between_edges((point_lon, point_lat): &(f64, f64), (v1_lon, v1_lat): &(f64, f64), (v2_lon, v2_lat): &(f64, f64)) -> bool {
         // Algorithm based on https://trs.jpl.nasa.gov/handle/2014/41271
-        if v1_lon == v2_lon {
+        if (v1_lon - v2_lon).abs() <= EPSILON {
             // Ignore north-south edges
             return false;
-        } else if v1_lat == v2_lat {
+        } else if (v1_lat - v2_lat).abs() <= EPSILON {
             return f64::min(*v1_lon, *v2_lon) <= *point_lon && *point_lon <= f64::max(*v1_lon, *v2_lon);
         } else if *point_lon < f64::min(*v1_lon, *v2_lon) || f64::max(*v1_lon, *v2_lon) < *point_lon {
             // Can not intersect with the edge
@@ -65,12 +66,12 @@ impl PointInPolygonTest {
         let point_lon_rad = point_lon.to_radians();
 
         let intersection_lat_tan = (v1_lat_tan * ((point_lon_rad - v2_lon_rad).sin() / delta_v_lon_sin) - v2_lat_tan * ((point_lon_rad - v1_lon_rad).sin() / delta_v_lon_sin));
-        if intersection_lat_tan == v1_lat_tan || intersection_lat_tan == v2_lat_tan {
+        if (intersection_lat_tan - v1_lat_tan).abs() <= EPSILON || (intersection_lat_tan - v2_lat_tan) <= EPSILON {
             //special case: intersection is on one of the vertices
-            let (hit_vert_lon_rad, other_vert_lon_rad) = if (intersection_lat_tan - v1_lat_tan).abs() <= f64::EPSILON { (v1_lon_rad, v2_lon_rad) } else { (v2_lon_rad, v1_lon_rad) };
+            let (hit_vert_lon_rad, other_vert_lon_rad) = if (intersection_lat_tan - v1_lat_tan).abs() <= EPSILON { (v1_lon_rad, v2_lon_rad) } else { (v2_lon_rad, v1_lon_rad) };
             // Special case to handle rounding errors:
             // check if the longitude of the hit point matches the longitude of the intersection.
-            if (point_lon_rad - hit_vert_lon_rad).abs() <= f64::EPSILON {
+            if (point_lon_rad - hit_vert_lon_rad).abs() <= EPSILON {
                 // tread it as in polygon iff the other vertex is westward of the hit vertex
                 return (hit_vert_lon_rad - other_vert_lon_rad).sin() > 0f64;
             }// else { println!("Special case. point lon {}, lat {}, v1 lon {}, lat {} v2 lon {} lat {}, intersection lat {}",point_lon, point_lat, v1_lon, v1_lat, v2_lon, v2_lat, intersection_lat_tan.atan().to_degrees()); }
@@ -272,12 +273,11 @@ impl PointInPolygonTest {
             if polygon[i].1 < point_lat && polygon[i + 1].1 < point_lat {
                 continue;
             }
-            if polygon[i] == (point_lon, point_lat) {
+            if (polygon[i].0 - point_lon).abs() <= EPSILON && (polygon[i].1 - point_lat).abs() <= EPSILON {
                 // Point is at the vertex -> we define this as within the polygon
                 return true;
             }
-            if polygon[i].0 == polygon[i + 1].0 && polygon[i].0 == point_lon {
-                // MM: fixed
+            if (polygon[i].0 - polygon[i + 1].0).abs() <= EPSILON && (polygon[i].0 - point_lon).abs() <= EPSILON {
                 // north south edge. Check if the point is on this edge
                 if polygon[i].1.min(polygon[i + 1].1) < point_lat && polygon[i].1.max(polygon[i + 1].1) > point_lat {
                     // point on this edge
@@ -300,7 +300,7 @@ impl PointInPolygonTest {
         }
         for polygon_idx in polygon_indices {
             let polygon = &self.polygons[polygon_idx];
-            if self.check_point_in_polygon((point_lon, point_lat), &polygon) {
+            if self.check_point_in_polygon((point_lon, point_lat), polygon) {
                 return true;
             }
         }
@@ -315,6 +315,10 @@ impl PointInPolygonTest {
     pub fn check_intersection(&self, point: (f64, f64)) -> bool {
         if point.1 <= ANTARCTICA_MINIMUM_LAT {
             // hit south pole
+            return true;
+        }
+        if point.1 <= -77.7492 && (point.0 == 180.0 || point.0 == -180.0) {
+            // hit the join of the south pole polygon
             return true;
         }
         // shortcut: First check grid
