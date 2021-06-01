@@ -16,30 +16,30 @@ use crate::grid_graph::GridGraph;
 use crate::grid_graph;
 use std::ffi::OsStr;
 
-pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S) -> GridGraph {
+pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, force_create: bool) -> GridGraph {
     let osm_path= Path::new(osm_path_name);
     let osm_name = osm_path.file_name().unwrap();
     let mut graph_file_name = osm_name.to_str().unwrap().to_owned();
     graph_file_name.push_str(".");
-    graph_file_name.push_str(&*grid_graph::NUMBER_NODES.to_string());
+    graph_file_name.push_str(&*grid_graph::get_maximum_number_of_nodes().to_string());
     graph_file_name.push_str(".bin");
     let path = osm_path.with_file_name(graph_file_name);
-    let disk_graph = load_graph_from_disk(&path);
-    let graph = if disk_graph.is_ok() {
-        let gra= disk_graph.unwrap();
-        println!("Loaded graph from disk \"{}\". Node count: {}", path.to_str().unwrap(), gra.nodes.len());
-        gra
-    } else {
-        let polygons = read_file(osm_path.to_str().unwrap());
-        let polygon_test = PointInPolygonTest::new(polygons);
+    if !force_create {
+        let disk_graph = load_graph_from_disk(&path);
+        if disk_graph.is_ok() {
+            let gra = disk_graph.unwrap();
+            println!("Loaded graph from disk \"{}\". Node count: {}", path.to_str().unwrap(), gra.nodes.len());
+            return gra;
+        }
+    }
+    let polygons = read_file(osm_path.to_str().unwrap());
+    let polygon_test = PointInPolygonTest::new(polygons);
 
-        // assign new value to the GRAPH reference
-        let gra = GridGraph::new(&polygon_test);
-        save_graph_to_disk(&path, &gra);
-        println!("Saved graph to disk");
-        gra
-    };
-    graph
+    // assign new value to the GRAPH reference
+    let gra = GridGraph::new(&polygon_test);
+    save_graph_to_disk(&path, &gra);
+    println!("Saved graph to disk at {}", path.to_str().unwrap());
+    return gra;
 }
 
 fn save_graph_to_disk(path: &Path, graph: &GridGraph) {
@@ -93,7 +93,6 @@ pub fn read_file(path: &str) -> Vec<Vec<(f64, f64)>> {
 
     // sort polygons by size so that we check the bigger before the smaller ones
     polygons.sort_by(|a, b| b.len().cmp(&a.len()));
-    println!("Number of Polygons: {}", polygons.first().unwrap().len());
 
     /*
     let file = "poly";
@@ -116,12 +115,12 @@ pub fn read_file(path: &str) -> Vec<Vec<(f64, f64)>> {
     return polygons;
 }
 
-fn write_to_file(name: String, data: String) {
+pub fn write_to_file(name: String, data: String) {
     let mut file = File::create(name).expect("Could not open file");
     file.write_all(data.as_ref()).expect("Could not write file");
 }
 
-fn points_to_json(points: Vec<(f64, f64)>) -> String {
+pub fn points_to_json(points: Vec<(f64, f64)>) -> String {
     let points_string = format!("{:?}", points).replace("(", "[").replace(")", "]\n");
     let feature = format!("{{ \"type\": \"MultiPoint\",
     \"coordinates\": {}
@@ -138,7 +137,7 @@ fn points_to_json(points: Vec<(f64, f64)>) -> String {
 }}", feature)
 }
 
-fn lines_to_json(lines: Vec<((f64, f64), (f64, f64))>) -> String {
+pub fn lines_to_json(lines: Vec<((f64, f64), (f64, f64))>) -> String {
     let mut features = String::new();
     for line in lines {
         let geometry = format!("{{ \"type\": \"LineString\",

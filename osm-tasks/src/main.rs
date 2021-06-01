@@ -40,6 +40,7 @@ use crate::persistence::routing_repo::RoutingRepo;
 use crate::polygon_test::PointInPolygonTest;
 use crate::max_testing::max_testing;
 use crate::cors::CORS;
+use crate::config::Config;
 
 mod grid_graph;
 mod json_generator;
@@ -52,6 +53,7 @@ mod navigator_use_case;
 mod max_testing;
 mod nearest_neighbor;
 mod cors;
+mod config;
 
 #[openapi]
 #[post("/build_graph")]
@@ -102,13 +104,14 @@ fn job_result(id: usize, navigator_use_case: State<NavigatorUseCase>) -> Option<
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    // for testing
-    if args.len() > 1 && args[1] == "max"{
+    Config::init();
+    let config = Config::global();
+    if config.max_test(){
         println!("{spacer:?}\n  ====== Testing mode. Will not start server!! =======\n{spacer:?}",spacer=String::from_utf8(vec![b'='; 50]));
         max_testing();
         return;
     }
+    println!("Using file {} and a maximum number of {} nodes.", config.coastlines_file(), config.number_of_nodes());
     rocket().launch();
 }
 
