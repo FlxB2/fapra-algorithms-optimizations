@@ -8,10 +8,12 @@ use serde::{Deserialize, Serialize};
 use crate::polygon_test::PointInPolygonTest;
 use rayon::prelude::*;
 use crate::dijkstra::AdjacencyArray;
+use crate::config::Config;
 
-// we could calculate the number of nodes during runtime
-// even better: fixed number at compile time
-pub(crate) const NUMBER_NODES: usize = 1000000;
+/// Returns the upper bound of the number of nodes in this graph.
+pub fn get_maximum_number_of_nodes() -> usize {
+    Config::global().number_of_nodes() as usize
+}
 
 #[derive(Clone, Copy, Serialize, Deserialize, JsonSchema)]
 pub struct Edge {
@@ -66,17 +68,18 @@ impl GridGraph {
     }
     pub fn new(polygon_test: &PointInPolygonTest) -> GridGraph {
         // mapping from virtual nodes indices (0..NUMBER_NODES) (includes nodes inside of polygons) to the actual nodes of the grid (includes only nodes of the graph)
-        let mut virtual_nodes_to_index: Vec<Option<u32>> = vec![None;NUMBER_NODES];
+        let maximum_number_of_nodes = get_maximum_number_of_nodes();
+        let mut virtual_nodes_to_index: Vec<Option<u32>> = vec![None;maximum_number_of_nodes];
         let mut number_virtual_nodes: usize = 0;
         let mut number_graph_nodes: usize = 0;
-        let mut nodes = vec![Node { lat: 0.0, lon: 0.0}; NUMBER_NODES];
-        let mut edges: Vec<Vec<Edge>> = vec![Vec::with_capacity(8); NUMBER_NODES];
+        let mut nodes = vec![Node { lat: 0.0, lon: 0.0}; maximum_number_of_nodes];
+        let mut edges: Vec<Vec<Edge>> = vec![Vec::with_capacity(8); maximum_number_of_nodes];
 
         // algorithm taken from here https://www.cmu.edu/biolphys/deserno/pdf/sphere_equi.pdf
         // number of nodes is only very close not equal to NUMBER_NODES
         let pi = PI as f64;
         let radius_earth: f64 = 1.0; // in km
-        let a: f64 = 4.0 * pi * (radius_earth.powf(2.0) / NUMBER_NODES as f64);
+        let a: f64 = 4.0 * pi * (radius_earth.powf(2.0) / maximum_number_of_nodes as f64);
         let d: f64 = a.sqrt();
         let m_theta = (pi / d).round() as i32;
         let d_theta: f64 = pi / (m_theta as f64);
@@ -86,20 +89,20 @@ impl GridGraph {
         let mut number_virtual_nodes_before_last_round = 0;
         // calculated in rad!!
         for m in 0..m_theta {
-            if ((number_virtual_nodes as f64 / NUMBER_NODES as f64)*100.0).ceil() as i32 > ((number_virtual_nodes_before_last_round as f64 / NUMBER_NODES as f64)*100.0).ceil() as i32 {
-                println!("Generating graph: {}%", ((number_virtual_nodes as f64 / NUMBER_NODES as f64) * 100.0).ceil() as i32);
+            if ((number_virtual_nodes as f64 / maximum_number_of_nodes as f64)*100.0).ceil() as i32 > ((number_virtual_nodes_before_last_round as f64 / maximum_number_of_nodes as f64)*100.0).ceil() as i32 {
+                println!("Generating graph: {}%", ((number_virtual_nodes as f64 / maximum_number_of_nodes as f64) * 100.0).ceil() as i32);
             }
             let polar = pi * ((m as f64) + 0.5) / (m_theta as f64);
             m_phi = ((2.0 * pi * (polar).sin() / d_phi).round() as i32);
             let number_azimuth_steps_this_round = (0..m_phi).len();
             let number_virtual_nodes_at_start_of_this_round = number_virtual_nodes;
+            let lat = polar * (180.0 / pi) - 90.0;
             // Do point in polygon test in parallel and collect results
             let nodes_to_place : Vec<(i32, Option<Node>)> = (0..m_phi).into_par_iter().map(|n| {
                 let azimuthal = 2.0 * pi * (n as f64) / (m_phi as f64);
 
                 // convert rad to degrees and lon = polar - 90; lat = azimuthal-180
                 let lon = azimuthal * (180.0 / pi) - 180.0;
-                let lat = polar * (180.0 / pi) - 90.0;
 
                 if polygon_test.check_intersection(*&(lon, lat)) {
                     (n, None)
@@ -111,7 +114,7 @@ impl GridGraph {
             nodes_to_place.into_iter().for_each(|(n, source_node_option)| {
                 let n_float = n as f64;
                 if let Some(source_node) = source_node_option {
-                    if number_virtual_nodes < NUMBER_NODES {
+                    if number_virtual_nodes < maximum_number_of_nodes {
                         nodes[number_graph_nodes] = source_node;
                         virtual_nodes_to_index[number_virtual_nodes] = Some(number_graph_nodes as u32);
                         if number_azimuth_steps_last_round > 3 {

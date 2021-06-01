@@ -6,6 +6,7 @@ use crate::persistence::in_memory_routing_repo::{ShipRoute, RouteRequest};
 use std::sync::Mutex;
 use crate::dijkstra::{Dijkstra};
 use crate::nearest_neighbor::NearestNeighbor;
+use crate::config::Config;
 
 pub(crate) struct InMemoryGraph {
     graph: GridGraph,
@@ -15,8 +16,12 @@ pub(crate) struct InMemoryGraph {
 
 impl Navigator for InMemoryGraph {
     fn new() -> InMemoryGraph {
+        let config = Config::global();
+        let graph = if config.build_graph_on_startup() {
+            read_or_create_graph(config.coastlines_file(), config.force_rebuild_graph())
+        } else { GridGraph::default() };
         InMemoryGraph {
-            graph: GridGraph::default(),
+            graph,
             dijkstra: None,
             nearest_neighbor: None
         }
@@ -28,9 +33,11 @@ impl Navigator for InMemoryGraph {
         let polygon_test = PointInPolygonTest::new(polygons);
 */
         // assign new value to the GRAPH reference
-        self.graph = read_or_create_graph("./iceland-coastlines.osm.pbf");
+        // self.graph = read_or_create_graph("./iceland-coastlines.osm.pbf");
         // self.graph = read_or_create_graph("./planet-coastlines.pbf.sec");
-        self.dijkstra = Some(Dijkstra::new(self.graph.adjacency_array(), 3));
+        let config = Config::global();
+        self.graph = read_or_create_graph(config.coastlines_file(), config.force_rebuild_graph());
+        self.dijkstra = Some(Dijkstra::new(self.graph.adjacency_array(), self.get_number_nodes() - 1));
         self.nearest_neighbor = Some(NearestNeighbor::new(&self.graph.nodes));
     }
 

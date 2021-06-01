@@ -1,7 +1,4 @@
-use kml::Error;
-
 use crate::grid_graph::{distance, Node};
-use std::process::id;
 
 #[derive(Clone, Copy, Debug)]
 struct NodeWithId {
@@ -60,7 +57,7 @@ impl NearestNeighbor {
                 }
             }
         }
-        panic!(format!("Invariant violated: Could not find nearest neighbor node for coords {} {}", node.lon, node.lat));
+        panic!("Invariant violated: Could not find nearest neighbor node for coords {} {}", node.lon, node.lat);
     }
 
     /// returns the nearest node and teh distance to this node as well as the used radius for this query
