@@ -17,13 +17,21 @@ pub(crate) struct InMemoryGraph {
 impl Navigator for InMemoryGraph {
     fn new() -> InMemoryGraph {
         let config = Config::global();
-        let graph = if config.build_graph_on_startup() {
-            read_or_create_graph(config.coastlines_file(), config.force_rebuild_graph())
-        } else { GridGraph::default() };
-        InMemoryGraph {
-            graph,
-            dijkstra: None,
-            nearest_neighbor: None
+        if config.build_graph_on_startup() {
+            let graph =  read_or_create_graph(config.coastlines_file(), config.force_rebuild_graph());
+            let dijkstra = Some(Dijkstra::new(graph.adjacency_array(), get_number_nodes() - 1));
+            let nearest_neighbor = Some(NearestNeighbor::new(&graph.nodes));
+            InMemoryGraph {
+                graph,
+                dijkstra,
+                nearest_neighbor
+            }
+        } else {
+            InMemoryGraph {
+                graph: GridGraph::default(),
+                dijkstra: None,
+                nearest_neighbor: None
+            }
         }
     }
 
