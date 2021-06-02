@@ -9,6 +9,7 @@ use crate::polygon_test::PointInPolygonTest;
 use rayon::prelude::*;
 use crate::dijkstra::AdjacencyArray;
 use crate::config::Config;
+use std::time::Instant;
 
 /// Returns the upper bound of the number of nodes in this graph.
 pub fn get_maximum_number_of_nodes() -> usize {
@@ -68,6 +69,7 @@ impl GridGraph {
     }
     pub fn new(polygon_test: &PointInPolygonTest) -> GridGraph {
         // mapping from virtual nodes indices (0..NUMBER_NODES) (includes nodes inside of polygons) to the actual nodes of the grid (includes only nodes of the graph)
+        let start_time = Instant::now();
         let maximum_number_of_nodes = get_maximum_number_of_nodes();
         let mut virtual_nodes_to_index: Vec<Option<u32>> = vec![None;maximum_number_of_nodes];
         let mut number_virtual_nodes: usize = 0;
@@ -179,7 +181,7 @@ impl GridGraph {
 
         // Remove unset nodes from nodes array
         nodes.truncate(number_graph_nodes);
-
+        println!("Generated graph in {} seconds", start_time.elapsed().as_secs());
         GridGraph {
             number_nodes: number_graph_nodes as i64,
             edges: flattened_edges,
