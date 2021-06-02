@@ -119,7 +119,7 @@ impl PointInPolygonTest {
 
     fn build_grid(&mut self) {
         // This grid approach assumes that the distance of an edge is not longer than one side of the grid cells
-        // This is valid for our openstreetmaps data
+        // This is valid for our openstreetmaps data except the antarctica polygon
 
         // In the beginning, there is only water on the whole world.
         let mut grid = vec![GridEntry::Outside; 360 * 180];
@@ -132,16 +132,28 @@ impl PointInPolygonTest {
             let y_size = bounding_box.3.floor() as i16 + 1 - y;
             let mut rects_with_points = vec![RectState::Initial; (x_size * y_size) as usize];
             // find rects containing points
-            for (lon, lat) in polygon {
+            for i in 0..(polygon.len() - 1) {
+                let (lon, lat) = &polygon[i];
+                let (next_lon, next_lat) = &polygon[i + 1];
+                if (lon.floor() as i16 - next_lon.floor() as i16).abs() > 1 {
+                    // we need to fill the cells in between for the long distances of the antarctic
+                    // println!("1Need to fill between {},{}   {},{}", lon, lat, next_lon, next_lat);
+                    for mut between_lon in (lon.floor() as i16).min(next_lon.floor() as i16)..(next_lon.floor() as i16).max(lon.floor() as i16) {
+                        if between_lon == 180 {
+                            between_lon = 179;
+                        }
+                        rects_with_points[((between_lon - x) + ((lat.floor() as i16 - y) * x_size)) as usize] = RectState::ContainsPoints;
+                    }
+                }
                 if *lon as i16 == 180 {
                     // thread this point as it would be in the 179 rect. This works because this
                     // is most likely a point of a polygon that was spilt at the 180 degree line.
                     // So its counterpart with the .-180 degree point will eventually processed
                     rects_with_points[((179 - x) + ((lat.floor() as i16 - y) * x_size)) as usize] = RectState::ContainsPoints;
-                    // Todo: Check for diagonal edges and mark also the sliced cell as ContainsPoints
                     continue
                 }
                 //println!("lon {}, let {}, index poly {}, x {}, y {}, xsize {}, ysize {}", lon, lat, i,x,y,x_size,y_size );
+                // Todo: Check for diagonal edges and mark also the sliced cell as ContainsPoints
                 rects_with_points[((lon.floor() as i16 - x) + ((lat.floor() as i16 - y) * x_size)) as usize] = RectState::ContainsPoints;
             }
             // Iterate over the the grid and process every rect
