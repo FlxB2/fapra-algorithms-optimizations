@@ -27,7 +27,9 @@ impl Point {
 
 /**
 Point in Polygon test
-Uses three stages to check if a point is inside a polygon:
+Uses four stages to check if a point is inside a polygon:
+0.  Uses a labeled grid with the labels POLYGON, OUTSIDE and BORDER. If a point falls into a cell with the label
+    POLYGON or OUTSIDE, we know the result. Only if the cell is labeled with BORDER, we need to continue with the test
 1.  Use a quadtree to determine the polygons that are in the same region as the point.
     The quadtree uses a resolution of integral lat lon coordinates.
 2. Use lat lon aligned bounding boxes to further narrow down the potential polygons which could be hit by the point
@@ -43,9 +45,8 @@ impl PointInPolygonTest {
         return polygon_test;
     }
 
-    // Todo: rename to check_intersect_edge
     /// Checks the intersection of the edge with an edge from the point to the north pole
-    fn check_point_between_edges((point_lon, point_lat): &(f64, f64), (v1_lon, v1_lat): &(f64, f64), (v2_lon, v2_lat): &(f64, f64)) -> bool {
+    fn check_intersect_edge((point_lon, point_lat): &(f64, f64), (v1_lon, v1_lat): &(f64, f64), (v2_lon, v2_lat): &(f64, f64)) -> bool {
         // Algorithm based on https://trs.jpl.nasa.gov/handle/2014/41271
         if (v1_lon - v2_lon).abs() <= EPSILON {
             // Ignore north-south edges
@@ -117,6 +118,9 @@ impl PointInPolygonTest {
     }
 
     fn build_grid(&mut self) {
+        // This grid approach assumes that the distance of an edge is not longer than one side of the grid cells
+        // This is valid for our openstreetmaps data
+
         // In the beginning, there is only water on the whole world.
         let mut grid = vec![GridEntry::Outside; 360 * 180];
         for i in 0..self.bounding_boxes.len() {
@@ -134,6 +138,7 @@ impl PointInPolygonTest {
                     // is most likely a point of a polygon that was spilt at the 180 degree line.
                     // So its counterpart with the .-180 degree point will eventually processed
                     rects_with_points[((179 - x) + ((lat.floor() as i16 - y) * x_size)) as usize] = RectState::ContainsPoints;
+                    // Todo: Check for diagonal edges and mark also the sliced cell as ContainsPoints
                     continue
                 }
                 //println!("lon {}, let {}, index poly {}, x {}, y {}, xsize {}, ysize {}", lon, lat, i,x,y,x_size,y_size );
@@ -238,6 +243,7 @@ impl PointInPolygonTest {
         }
     }
 
+    /// Returns a list of indices, which are hit by the point
     fn check_intersecting_bounding_boxes(&self, (lon, lat): (f64, f64)) -> Vec<usize> {
         let mut matching_polygons: Vec<usize> = Vec::with_capacity(self.polygons.len());
         // find potential polygons with the quadtree
@@ -284,7 +290,7 @@ impl PointInPolygonTest {
                     return true;
                 }
             }
-            if PointInPolygonTest::check_point_between_edges(&(point_lon, point_lat), &polygon[i], &polygon[i + 1]) {
+            if PointInPolygonTest::check_intersect_edge(&(point_lon, point_lat), &polygon[i], &polygon[i + 1]) {
                 intersection_count_even = !intersection_count_even;
                 //intersections.push((polygon[i], polygon[i + 1]));
             }

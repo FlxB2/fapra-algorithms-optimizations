@@ -17,6 +17,7 @@ use crate::grid_graph;
 use std::ffi::OsStr;
 use crate::json_generator::JsonBuilder;
 
+/// tries to load the graph for this from disk and builds the graph if prebuild graph was found.
 pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, force_create: bool) -> GridGraph {
     let osm_path= Path::new(osm_path_name);
     let osm_name = osm_path.file_name().unwrap();

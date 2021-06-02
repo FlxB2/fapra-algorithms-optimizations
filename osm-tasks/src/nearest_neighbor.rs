@@ -60,9 +60,10 @@ impl NearestNeighbor {
         panic!("Invariant violated: Could not find nearest neighbor node for coords {} {}", node.lon, node.lat);
     }
 
-    /// returns the nearest node and teh distance to this node as well as the used radius for this query
+    /// returns the nearest node and the distance to this node as well as the covered radius for this query
     fn find_nearest_neighbor_for_radius(&self, distance_to_center: usize, center_cell: usize, node: &Node) -> (Option<(&NodeWithId, f64)>, f64) {
         let mut nearest_node_and_distance: Option<(&NodeWithId, f64)> = None;
+        // Calculate the radius through the minimal distance to the midpoints of all checked cells
         let mut radius = f64::MAX;
         let (center_x, center_y) = NearestNeighbor::get_x_y_for_index(center_cell);
         for y in vec![center_y as isize - distance_to_center as isize, center_y as isize + distance_to_center as isize] {
