@@ -144,12 +144,18 @@ export class AppComponent implements AfterViewInit {
         if (this.currentRoute != null) {
           this.map.removeLayer(this.currentRoute);
         }
-        const array: LatLngTuple[] = [];
+        const lines: LatLngTuple[][] = [[]];
+        let lastLon = 0;
         res.nodes.forEach((node) => {
-          array.push([node.lat, node.lon]);
+          if ((Math.floor(node.lon) === 180 && lastLon < 0) || (Math.floor(node.lon) === -180 && lastLon > 0) ) {
+            // Crossed 180 degree line -> split line
+            lines.push([]);
+          }
+          lines[lines.length - 1].push([node.lat, node.lon]);
+          lastLon = node.lon;
         });
         // Use Geodesic that the lines will wrapped around 180 degree
-        this.currentRoute = new Geodesic(array).addTo(this.map);
+        this.currentRoute = new Geodesic(lines).addTo(this.map);
         this.updateMarkers(res.nodes[0].lat, res.nodes[0].lon, res.nodes[res.nodes.length - 1].lat, res.nodes[res.nodes.length - 1].lon);
         this.map.addLayer(this.currentRoute);
         this.showAlert('Success! Route length in m: ' + res.distance, 'info');
