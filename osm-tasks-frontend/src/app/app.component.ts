@@ -1,9 +1,30 @@
 import { AfterViewInit, Component } from '@angular/core';
 import {
-  map, marker, latLng, MapOptions, tileLayer, polyline, LatLngExpression, Polyline, icon, Marker
+  map,
+  marker,
+  latLng,
+  MapOptions,
+  tileLayer,
+  LatLngExpression,
+  Polyline,
+  icon,
+  Marker,
+  popup,
+  DomUtil,
+  DomEvent,
+  Geodesic,
+  LatLngTuple
 } from 'leaflet';
 import { ApiService } from '../../generated/services/api.service';
 import { ShipRoute } from '../../generated/models/ship-route';
+import 'leaflet.geodesic';
+
+// From https://www.iconfinder.com/icons/4908137/destination_ensign_flag_pole_signal_icon
+// No link back required
+const destinationIcon = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiA/PjxzdmcgZGF0YS1uYW1lPSJMYXllciAxIiBp' +
+  'ZD0iTGF5ZXJfMSIgdmlld0JveD0iMCAwIDI0IDI0IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjx0aXRsZS8+PHBhdG' +
+  'ggZD0iTTYsMTMuM2wxLjIxLjU0QTcuMjIsNy4yMiwwLDAsMCwxMi44LDE0YTUuMTcsNS4xNywwLDAsMSw0LjIzLjE4bDMsMS40OFY1LjM4' +
+  'bC0yLjA4LTFhNy4xOCw3LjE4LDAsMCwwLTUuODctLjI0QTUuMiw1LjIsMCwwLDEsOCw0TDYsMy4xMVYySDRWMjJINloiLz48L3N2Zz4=';
 
 @Component({
   selector: 'app-root',
@@ -18,11 +39,11 @@ export class AppComponent implements AfterViewInit {
   title = 'osm-tasks-frontend';
 
   alerts: any[] = [];
-  startLat: number = 0.0;
-  startLon: number = 0.0;
-  endLat: number = 0.0;
-  endLon: number = 0.0;
-  jobId: number = 0;
+  startLat = 0.0;
+  startLon = 0.0;
+  endLat = 0.0;
+  endLon = 0.0;
+  jobId = 0;
 
   currentRoute: Polyline;
   markerStart: Marker;
@@ -30,65 +51,129 @@ export class AppComponent implements AfterViewInit {
 
   private map;
 
-  initMap(): void {
-    this.map = map('map', this.options)
-  }
-
-  ngAfterViewInit(): void {
-    this.initMap()
-  }
-
   options: MapOptions = {
     layers: [tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       opacity: 1.0,
       maxZoom: 19,
       detectRetina: true,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      noWrap: true
     })],
     zoom: 3,
     center: latLng(51.1657, 10.4515)
   };
 
+  initMap(): void {
+    this.map = map('map', this.options);
+    this.map.on('click', (e: any) => {
+      this.defineYourWaypointOnClick(e);
+    });
+  }
+
+  ngAfterViewInit(): void {
+    this.initMap();
+  }
+
   buildGraph() {
     this.apiService.buildGraph().subscribe(
-      _ => this.showAlert("Building graph.. this might take a while", "info"));
+      _ => this.showAlert('Building graph.. this might take a while', 'info'));
+  }
+
+  defineYourWaypointOnClick(e: any) {
+    // Code taken from: https://stackoverflow.com/questions/42599445/adding-buttons-inside-leaflet-popup
+    const choicePopUp = popup();
+    const container = DomUtil.create('div');
+    const startBtn = this.createButton('Start from this location', container);
+    const destBtn = this.createButton('Go to this location', container);
+
+    choicePopUp
+      .setLatLng(e.latlng)
+      .setContent(container)
+      .openOn(this.map);
+
+    DomEvent.on(startBtn, 'click', () => {
+      this.map.closePopup();
+      this.startLat = e.latlng.lat;
+      this.startLon = e.latlng.lng;
+      this.updateMarkers();
+    });
+
+    DomEvent.on(destBtn, 'click', () => {
+      this.map.closePopup();
+      this.endLat = e.latlng.lat;
+      this.endLon = e.latlng.lng;
+      this.updateMarkers();
+    });
+  }
+
+  updateMarkers(startLat = this.startLat, startLon = this.startLon, endLat = this.endLat, endLon = this.endLon) {
+    if (this.markerStart != null) {
+      this.map.removeLayer(this.markerStart);
+    }
+    this.markerStart = this.getMarker([startLat, startLon]);
+    this.markerStart.addTo(this.map);
+    if (this.markerStop != null) {
+      this.map.removeLayer(this.markerStop);
+    }
+    this.markerStop = this.getDestinationMarker([endLat, endLon]);
+    this.markerStop.addTo(this.map);
+  }
+
+  createButton(label: string, container: any) {
+    const btn = DomUtil.create('button', '', container);
+    btn.setAttribute('type', 'button');
+    btn.innerHTML = label;
+    return btn;
   }
 
   requestRoute() {
     this.apiService.route({
       lat_start: this.startLat, lon_start: this.startLon, lat_end: this.endLat, lon_end: this.endLon
     }).subscribe(
-      data => this.showAlert("calculating result, jobId: " + data, "info"),
-      () => this.showAlert("Could not calculate result did you build the graph?", "danger"));
+      data => {
+        this.showAlert('calculating result, jobId: ' + data, 'info');
+        this.jobId = data;
+        // try to fetch the result after one second
+        setTimeout(() => { this.requestResult(); }, 1000);
+        },
+      () => this.showAlert('Could not calculate result did you build the graph?', 'danger'));
   }
 
   requestResult() {
     this.apiService.jobResult({ id: this.jobId }).subscribe((res: ShipRoute) => {
         if (this.currentRoute != null) {
           this.map.removeLayer(this.currentRoute);
-          this.map.removeLayer(this.markerStart);
-          this.map.removeLayer(this.markerStop);
         }
-        const array: LatLngExpression[] = [];
-        this.markerStart = this.getMarker([res.nodes[0].lat, res.nodes[0].lon])
-        this.markerStop = this.getMarker([res.nodes[res.nodes.length - 1].lat, res.nodes[res.nodes.length - 1].lon])
-        this.markerStart.addTo(this.map)
-        this.markerStop.addTo(this.map)
+        const array: LatLngTuple[] = [];
         res.nodes.forEach((node) => {
-          array.push([node.lat, node.lon])
+          array.push([node.lat, node.lon]);
         });
-        this.currentRoute = polyline(array)
+        // Use Geodesic that the lines will wrapped around 180 degree
+        this.currentRoute = new Geodesic(array).addTo(this.map);
+        this.updateMarkers(res.nodes[0].lat, res.nodes[0].lon, res.nodes[res.nodes.length - 1].lat, res.nodes[res.nodes.length - 1].lon);
         this.map.addLayer(this.currentRoute);
-        this.showAlert("Success! Route length in m: " + res.distance, "info");
-      }, () => this.showAlert("Could not fetch result did you build the graph? And did you check the id? Calculating a route might take a while", "danger")
+        this.showAlert('Success! Route length in m: ' + res.distance, 'info');
+      }, () => this.showAlert('Could not fetch result did you build the graph?' +
+      ' And did you check the id? Calculating a route might take a while', 'danger')
     );
   }
 
-  showAlert(msg: String, type: String) {
+  showAlert(msg: string, type: string) {
     this.alerts.push({
-      type: type,
-      msg: msg,
+      type,
+      msg,
       timeout: 5000
+    });
+  }
+
+  getDestinationMarker(location: LatLngExpression): Marker {
+    return marker(location, {
+      icon: icon({
+        iconSize: [41, 41],
+        iconAnchor: [7, 38],
+        iconUrl: destinationIcon,
+        shadowUrl: 'assets/marker-shadow.png'
+      })
     });
   }
 
@@ -96,10 +181,10 @@ export class AppComponent implements AfterViewInit {
     return marker(location, {
       icon: icon({
         iconSize: [25, 41],
-        iconAnchor: [13, 41],
+        iconAnchor: [13.5, 41],
         iconUrl: 'assets/marker-icon.png',
         shadowUrl: 'assets/marker-shadow.png'
       })
-    })
+    });
   }
 }

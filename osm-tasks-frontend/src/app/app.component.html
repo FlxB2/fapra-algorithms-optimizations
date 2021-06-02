@@ -8,10 +8,10 @@
       <button type="button" (click)="buildGraph()" class="btn btn-primary">
         Build Graph
       </button> <br>
-      start point latitude: <input [(ngModel)]="startLat">
-      start point longitude: <input [(ngModel)]="startLon">
-      end point latitude: <input [(ngModel)]="endLat">
-      end point longitude:  <input [(ngModel)]="endLon">
+      start point latitude: <input [(ngModel)]="startLat" (ngModelChange)="updateMarkers()">
+      start point longitude: <input [(ngModel)]="startLon" (ngModelChange)="updateMarkers()">
+      end point latitude: <input [(ngModel)]="endLat" (ngModelChange)="updateMarkers()">
+      end point longitude:  <input [(ngModel)]="endLon" (ngModelChange)="updateMarkers()">
       <button type="button" (click)="requestRoute()" class="btn btn-primary">
         Request Route
       </button><br>

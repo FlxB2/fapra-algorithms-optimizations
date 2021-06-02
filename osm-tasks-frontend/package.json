@@ -25,6 +25,7 @@
     "@asymmetrik/ngx-leaflet": "^8.1.0",
     "bootstrap": "^5.0.1",
     "leaflet": "^1.7.1",
+    "leaflet.geodesic": "^2.5.5-0",
     "ngx-bootstrap": "^6.2.0",
     "rxjs": "~6.4.0",
     "tslib": "^1.10.0",
@@ -47,11 +48,11 @@
     "karma-coverage-istanbul-reporter": "~3.0.2",
     "karma-jasmine": "~4.0.0",
     "karma-jasmine-html-reporter": "^1.5.0",
+    "ng-openapi-gen": "^0.17.0",
+    "prettier": "^2.0.5",
     "protractor": "~7.0.0",
     "ts-node": "~7.0.0",
     "tslint": "~5.15.0",
-    "typescript": "~4.0.5",
-    "ng-openapi-gen": "^0.17.0",
-    "prettier": "^2.0.5"
+    "typescript": "~4.0.5"
   }
 }
