@@ -10,7 +10,8 @@ npm package manager, you can use this [guide](https://docs.npmjs.com/downloading
 
 ## Development server
 
-Run `ng serve` to start the dev server. Navigate to `http://localhost:4200/`.
+Run `npm install` to install the required dependencies.  
+Afterwards run `ng serve` to start the dev server. Navigate to `http://localhost:4200/`.
 
 ## Generate API Stubs
 
@@ -18,3 +19,6 @@ We used [OpenAPI 3](https://swagger.io/specification/) to specify the API interf
 
 With the backend running on  ` http://localhost:8000` run  ` ng run gen` to generate new model interfaces and web service clients. Files are generated to the  `generated/ ` folder
 
+## How it works
+If you request a route, the request will be queued at the server and the job id is returned.
+With this job id you can then request the result of the routing request. 
