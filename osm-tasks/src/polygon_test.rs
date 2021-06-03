@@ -1,5 +1,4 @@
 use quadtree_rs::{area::AreaBuilder, point::Point as qPoint, Quadtree};
-use std::cmp::Ordering::Equal;
 
 const ANTARCTICA_MINIMUM_LAT: f64 = -85.05;
 const EPSILON: f64 = f64::EPSILON;
@@ -9,20 +8,6 @@ pub struct PointInPolygonTest {
     polygons: Vec<Vec<(f64, f64)>>,
     quadtree: Quadtree<i16, i32>,
     grid: Option<Vec<GridEntry>>
-}
-
-pub struct Point(f64, f64);
-
-impl Point {
-    fn new(lon: f64, lat: f64) -> Point {
-        Point(lat, lon)
-    }
-    fn from((lon, lat): &(f64, f64)) -> Point {
-        Point(*lat, *lon)
-    }
-
-    fn lat(&self) -> f64 { self.0 }
-    fn lon(&self) -> f64 { self.1 }
 }
 
 /**
@@ -66,7 +51,7 @@ impl PointInPolygonTest {
         let delta_v_lon_sin = (v1_lon_rad - v2_lon_rad).sin();
         let point_lon_rad = point_lon.to_radians();
 
-        let intersection_lat_tan = (v1_lat_tan * ((point_lon_rad - v2_lon_rad).sin() / delta_v_lon_sin) - v2_lat_tan * ((point_lon_rad - v1_lon_rad).sin() / delta_v_lon_sin));
+        let intersection_lat_tan = v1_lat_tan * ((point_lon_rad - v2_lon_rad).sin() / delta_v_lon_sin) - v2_lat_tan * ((point_lon_rad - v1_lon_rad).sin() / delta_v_lon_sin);
         if (intersection_lat_tan - v1_lat_tan).abs() <= EPSILON || (intersection_lat_tan - v2_lat_tan) <= EPSILON {
             //special case: intersection is on one of the vertices
             let (hit_vert_lon_rad, other_vert_lon_rad) = if (intersection_lat_tan - v1_lat_tan).abs() <= EPSILON { (v1_lon_rad, v2_lon_rad) } else { (v2_lon_rad, v1_lon_rad) };
@@ -134,7 +119,7 @@ impl PointInPolygonTest {
             // find rects containing points
             for i in 0..(polygon.len() - 1) {
                 let (lon, lat) = &polygon[i];
-                let (next_lon, next_lat) = &polygon[i + 1];
+                let (next_lon, _) = &polygon[i + 1];
                 if (lon.floor() as i16 - next_lon.floor() as i16).abs() > 1 {
                     // we need to fill the cells in between for the long distances of the antarctic
                     // println!("1Need to fill between {},{}   {},{}", lon, lat, next_lon, next_lat);
@@ -182,8 +167,8 @@ impl PointInPolygonTest {
             }
         }
         /*
-        let mut kml_poly = KML_export::init();
-        let mut kml_outside = KML_export::init();
+        let mut kml_poly = KmlExport::init();
+        let mut kml_outside = KmlExport::init();
         for idx in 0..grid.len(){
             if grid[idx] == GridEntry::Polygon {
                 let p_y = idx as i16 / 360;
@@ -203,7 +188,7 @@ impl PointInPolygonTest {
 
 
     fn insert_in_grid(grid: &mut Vec<GridEntry>, entry: GridEntry, x: i16, y: i16) {
-        let idx = ((x + 180) as usize + ((y + 90) as usize * 360));
+        let idx = (x + 180) as usize + ((y + 90) as usize * 360);
         if entry == GridEntry::Border {
             // border has to be checked every time
             grid[idx] = entry;
@@ -281,7 +266,7 @@ impl PointInPolygonTest {
         if self.grid.is_none() {
             return &GridEntry::Border;
         }
-        return self.grid.as_ref().unwrap().get(((lon.floor() as i16 + 180) as usize + ((lat.floor() as i16 + 90) as usize * 360))).unwrap();
+        return self.grid.as_ref().unwrap().get((lon.floor() as i16 + 180) as usize + ((lat.floor() as i16 + 90) as usize * 360)).unwrap();
     }
 
     fn check_point_in_polygon(&self, (point_lon, point_lat): (f64, f64), polygon: &Vec<(f64,f64)>) -> bool {
@@ -323,11 +308,6 @@ impl PointInPolygonTest {
             }
         }
         return false;
-    }
-    const EARTH_RADIUS: i32 = 6_378_137;
-
-    fn calculate_length_between_points(p1: &Point, p2: &Point) -> f64 {
-        PointInPolygonTest::EARTH_RADIUS as f64 * ((p2.lon() - p1.lon()).powi(2) * ((p1.lat() + p2.lat()) / 2f64).cos().powi(2) * (p2.lat() - p1.lat()).powi(2)).sqrt()
     }
 
     pub fn check_intersection(&self, point: (f64, f64)) -> bool {

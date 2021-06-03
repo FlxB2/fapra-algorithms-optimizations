@@ -1,4 +1,3 @@
-use crate::grid_graph::GridGraph;
 use crate::persistence::in_memory_routing_repo::ShipRoute;
 
 pub trait RoutingRepo: Send + Sync {

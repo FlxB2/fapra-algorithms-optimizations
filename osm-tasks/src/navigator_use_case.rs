@@ -30,12 +30,12 @@ impl NavigatorUseCase {
         }
         let clone = self.navigator.clone();
         let repo_clone = self.route_repo.clone();
-        let mut job_id = None;
+        let job_id;
         {
             job_id = Some(self.route_repo.lock().unwrap().get_job_id());
         }
         thread::spawn(move|| {
-            let mut result = None;
+            let result;
             { // extra scope to unlock navigator after route is calculated
                 let mut nav = clone.lock().unwrap();
                 result = nav.calculate_route(route);
@@ -56,10 +56,11 @@ impl NavigatorUseCase {
         if self.get_number_nodes() == 0 {
             return None;
         }
-        let mut n = self.route_repo.lock().unwrap();
+        let n = self.route_repo.lock().unwrap();
         n.get_route(id)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_job_id(&self) -> u32 {
         self.route_repo.lock().unwrap().get_job_id()
     }

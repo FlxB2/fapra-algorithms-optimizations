@@ -1,9 +1,7 @@
 use crate::grid_graph::{GridGraph, Node};
-use crate::pbf_reader::{read_file, read_or_create_graph};
-use crate::polygon_test::PointInPolygonTest;
+use crate::pbf_reader::{read_or_create_graph};
 use crate::persistence::navigator::Navigator;
 use crate::persistence::in_memory_routing_repo::{ShipRoute, RouteRequest};
-use std::sync::Mutex;
 use crate::dijkstra::{Dijkstra};
 use crate::nearest_neighbor::NearestNeighbor;
 use crate::config::Config;

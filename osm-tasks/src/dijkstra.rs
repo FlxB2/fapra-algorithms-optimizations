@@ -2,11 +2,13 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fmt;
 
+#[allow(dead_code)]
 pub(crate) struct DummyGraph {
     offsets: Vec<u32>,
     edges: Vec<u32>,
 }
 
+#[allow(dead_code)]
 impl DummyGraph {
     pub(crate) fn init() -> DummyGraph {
         let offsets_old = vec![0, 2, 5, 8, 11, 16, 19, 22, 24];
@@ -193,6 +195,7 @@ impl Dijkstra {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn main() {
 
     let graph = DummyGraph::init();

@@ -2,7 +2,7 @@ use std::time::Instant;
 use std::collections::{HashMap, HashSet};
 use osmpbf::Element;
 use rayon::prelude::*;
-use crate::kml_exporter::KML_export;
+use crate::kml_exporter::KmlExport;
 use crate::polygon_test::PointInPolygonTest;
 use osmpbf::ElementReader;
 use std::fs::File;
@@ -46,7 +46,9 @@ pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, 
 
 fn save_graph_to_disk(path: &Path, graph: &GridGraph) {
     let mut f = BufWriter::new(File::create(path).unwrap());
-    bincode::serialize_into(&mut f, graph);
+    if let Err(e) = bincode::serialize_into(&mut f, graph) {
+        println!("Could not save graph to disk: {:?}", e);
+    }
 }
 
 fn load_graph_from_disk(path: &Path) -> bincode::Result<GridGraph> {
@@ -63,11 +65,11 @@ pub fn read_file(path: &str) -> Vec<Vec<(f64, f64)>> {
     let mut node_to_location: HashMap<i64, (f64, f64)> = HashMap::new();
     println!("Reading file {}", path);
 
-    /**
+    /*
      Assumptions:
      - each coastline way ends with a node which is contained in another coastline way
-    **/
-    reader.for_each(|item| {
+    */
+    if let Err(e) = reader.for_each(|item| {
         match item {
             Element::Way(way) => {
                 if let Some(_) = way.tags().find(|(k, v)| *k == "natural" && *v == "coastline") {
@@ -85,7 +87,9 @@ pub fn read_file(path: &str) -> Vec<Vec<(f64, f64)>> {
             }
             _ => {}
         }
-    });
+    }) {
+        println!("Could not read coastlines file: {:?}", e);
+    }
     println!("Reading done in {} sec", start_time.elapsed().as_secs());
     let merge_start_time = Instant::now();
     let mut polygons: Vec<Vec<(f64, f64)>> = merge_ways_to_polygons1(coastlines, node_to_location);
@@ -109,7 +113,7 @@ pub fn read_file(path: &str) -> Vec<Vec<(f64, f64)>> {
 
     let points_in_polygon = test_random_points_in_polygon(&point_test, 10000, (lon_min, lon_max, lat_min, lat_max)); */
     //write_to_file("island".parse().unwrap(), points_to_json(points_in_polygon));
-    //let mut kml = KML_export::init();
+    //let mut kml = KmlExport::init();
     //points_in_polygon.into_iter().for_each(|p| { kml.add_point(p, None) });
     //let graph = GridGraph::new();
     //graph.nodes.into_iter().foreach(|n| { kml.add_point(n, None) });
@@ -167,9 +171,9 @@ pub fn lines_to_json(lines: Vec<((f64, f64), (f64, f64))>) -> String {
   ]
 }}", features)
 }
-
+#[allow(dead_code)]
 fn export_polygons_with_resolution(polygons: Vec<Vec<(f64, f64)>>, path: String, max_nodes_per_polygon: usize) {
-    let mut kml = KML_export::init();
+    let mut kml = KmlExport::init();
     polygons.into_iter().map(|poly| {
         if poly.len() > max_nodes_per_polygon {
             let inverse_factor = poly.len() / max_nodes_per_polygon;
@@ -182,7 +186,7 @@ fn export_polygons_with_resolution(polygons: Vec<Vec<(f64, f64)>>, path: String,
     });
     kml.write_file(path);
 }
-
+#[allow(dead_code)]
 fn test_random_points_in_polygon(polygon_test: &PointInPolygonTest, number_of_points_to_test: usize, (lon_min, lon_max, lat_min, lat_max): (f64, f64, f64, f64)) -> Vec<(f64, f64)> {
     let mut rng = rand::thread_rng();
     let rng_lat = Uniform::from(lat_min..lat_max);
@@ -195,7 +199,7 @@ fn test_random_points_in_polygon(polygon_test: &PointInPolygonTest, number_of_po
             return test_point;
         }
         return (f64::NAN, f64::NAN);
-    }).filter(|(lon, lat): &(f64, f64)| { !lon.is_nan() }).collect()
+    }).filter(|(lon, _): &(f64, f64)| { !lon.is_nan() }).collect()
 }
 
 fn merge_ways_to_polygons1(coastlines: HashMap<i64, (i64, Vec<i64>)>, node_to_location: HashMap<i64, (f64, f64)>) -> Vec<Vec<(f64, f64)>> {

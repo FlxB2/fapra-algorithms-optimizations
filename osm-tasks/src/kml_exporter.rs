@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 use std::fs::File;
 
-use kml::{Kml, KmlDocument, KmlWriter, quick_collection, types::{AltitudeMode, Coord, LineString, Point, Polygon}};
+use kml::{Kml, KmlWriter, types::{ Coord, LineString, Point, Polygon}};
 use kml::types::{Geometry, LinearRing, Placemark};
 
-pub struct KML_export {
+pub struct KmlExport {
     elements: Vec<Kml<f64>>,
 }
 
-impl KML_export {
-    pub fn init() -> KML_export {
-        return KML_export {
+impl KmlExport {
+    pub fn init() -> KmlExport {
+        return KmlExport {
             elements: vec![]
         };
     }
@@ -35,17 +35,17 @@ impl KML_export {
     }
 
     pub fn add_polygon(&mut self, polygon: Vec<(f64, f64)>, name: Option<String>) {
-        let points: Vec<Coord> = KML_export::convert_coords(polygon);
-        self.elements.push(KML_export::as_placemarker(name, Geometry::Polygon(Polygon::new(LinearRing::from(points), vec![]))));
+        let points: Vec<Coord> = KmlExport::convert_coords(polygon);
+        self.elements.push(KmlExport::as_placemarker(name, Geometry::Polygon(Polygon::new(LinearRing::from(points), vec![]))));
     }
 
     pub fn add_point(&mut self, point: (f64, f64), name: Option<String>) {
-        self.elements.push(KML_export::as_placemarker(name, Geometry::Point(Point::new(point.0, point.1, None))));
+        self.elements.push(KmlExport::as_placemarker(name, Geometry::Point(Point::new(point.0, point.1, None))));
     }
 
     pub fn add_linestring(&mut self, line: Vec<(f64, f64)>, name: Option<String>) {
-        let points: Vec<Coord> = KML_export::convert_coords(line);
-        self.elements.push(KML_export::as_placemarker(name, Geometry::LineString(LineString::from(points))));
+        let points: Vec<Coord> = KmlExport::convert_coords(line);
+        self.elements.push(KmlExport::as_placemarker(name, Geometry::LineString(LineString::from(points))));
     }
 
     pub fn write_file(&self, path: String) {
@@ -55,6 +55,8 @@ impl KML_export {
             attrs: HashMap::new(),
             elements: self.elements.clone(),
         };
-        writer.write(&kml);
+        if let Err(e) = writer.write(&kml) {
+            println!("Could not write kml file: {:?}", e)
+        }
     }
 }
