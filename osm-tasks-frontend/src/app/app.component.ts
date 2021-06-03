@@ -1,23 +1,25 @@
-import { AfterViewInit, Component } from '@angular/core';
+import {AfterViewInit, Component, TemplateRef} from '@angular/core';
 import {
-  map,
-  marker,
-  latLng,
-  MapOptions,
-  tileLayer,
-  LatLngExpression,
-  Polyline,
-  icon,
-  Marker,
-  popup,
-  DomUtil,
   DomEvent,
+  DomUtil,
   Geodesic,
-  LatLngTuple
+  icon,
+  latLng,
+  LatLngExpression,
+  LatLngTuple,
+  map,
+  MapOptions,
+  marker,
+  Marker,
+  Polyline,
+  popup,
+  tileLayer
 } from 'leaflet';
-import { ApiService } from '../../generated/services/api.service';
-import { ShipRoute } from '../../generated/models/ship-route';
+import {ApiService} from '../../generated/services/api.service';
+import {ShipRoute} from '../../generated/models/ship-route';
 import 'leaflet.geodesic';
+import {BsModalRef, BsModalService} from 'ngx-bootstrap/modal';
+
 
 // From https://www.iconfinder.com/icons/4908137/destination_ensign_flag_pole_signal_icon
 // No link back required
@@ -32,8 +34,9 @@ const destinationIcon = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiA/P
   styleUrls: ['./app.component.css']
 })
 export class AppComponent implements AfterViewInit {
+  modalRef: BsModalRef;
 
-  constructor(private apiService: ApiService) {
+  constructor(private apiService: ApiService, private modalService: BsModalService) {
   }
 
   title = 'osm-tasks-frontend';
@@ -63,12 +66,17 @@ export class AppComponent implements AfterViewInit {
     center: latLng(51.1657, 10.4515)
   };
 
+  openModal(template: TemplateRef<any>) {
+    this.modalRef = this.modalService.show(template);
+  }
+
   initMap(): void {
     this.map = map('map', this.options);
     this.map.on('click', (e: any) => {
       this.defineYourWaypointOnClick(e);
     });
   }
+
 
   ngAfterViewInit(): void {
     this.initMap();
@@ -194,3 +202,5 @@ export class AppComponent implements AfterViewInit {
     });
   }
 }
+
+

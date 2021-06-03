@@ -7,6 +7,7 @@ import { HttpClientModule } from '@angular/common/http';
 import { ApiModule } from '../../generated/api.module';
 import { FormsModule } from '@angular/forms';
 import { AlertModule } from 'ngx-bootstrap/alert';
+import { ModalModule } from 'ngx-bootstrap/modal';
 
 // @ts-ignore
 @NgModule({
@@ -19,7 +20,8 @@ import { AlertModule } from 'ngx-bootstrap/alert';
     ApiModule.forRoot({ rootUrl: 'http://localhost:8000' }),
     HttpClientModule,
     FormsModule,
-    AlertModule.forRoot()
+    AlertModule.forRoot(),
+    ModalModule.forRoot()
   ],
   bootstrap: [AppComponent]
 })
