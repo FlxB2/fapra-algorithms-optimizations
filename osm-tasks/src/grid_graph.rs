@@ -90,7 +90,7 @@ impl GridGraph {
         let mut number_azimuth_steps_last_round = 0;
         let mut number_virtual_nodes_before_last_round = 0;
         // calculated in rad!!
-        for m in 0..m_theta {
+        for m in (0..m_theta).rev() {
             if ((number_virtual_nodes as f64 / maximum_number_of_nodes as f64)*100.0).ceil() as i32 > ((number_virtual_nodes_before_last_round as f64 / maximum_number_of_nodes as f64)*100.0).ceil() as i32 {
                 println!("Generating graph: {}%", ((number_virtual_nodes as f64 / maximum_number_of_nodes as f64) * 100.0).ceil() as i32);
             }
@@ -113,6 +113,7 @@ impl GridGraph {
                     (n, Some(source_node))
                 }
             }).collect();
+            let mut last_node_mid_top_node_orientation = NodeOrientation::MID;
             nodes_to_place.into_iter().for_each(|(n, source_node_option)| {
                 let n_float = n as f64;
                 if let Some(source_node) = source_node_option {
@@ -143,8 +144,28 @@ impl GridGraph {
                                         if dst_left != dst_right {
                                             if dst_left > dst_right {
                                                 add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_right_node + 1)]);
+                                                // check if the orientation has flipped from left to right
+                                                if last_node_mid_top_node_orientation == NodeOrientation::LEFT {
+                                                    // insert extra edges crossed over the gap,so that no gap is produced
+                                                    add_extra_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_left_node - 1)]);
+                                                    if let Some(left_neighbor_index) = &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_at_start_of_this_round, &(m_phi as usize), number_virtual_nodes + (m_phi - 1) as usize)] {
+                                                        add_extra_edge(&mut edges, &nodes, *left_neighbor_index as usize, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_right_node)]);
+
+                                                    }
+                                                }
+                                                last_node_mid_top_node_orientation = NodeOrientation::RIGHT;
                                             } else {
                                                 add_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_left_node - 1)]);
+                                                last_node_mid_top_node_orientation = NodeOrientation::LEFT;
+                                            }
+                                        } else {
+                                            if last_node_mid_top_node_orientation == NodeOrientation::LEFT {
+                                                // insert extra edges crossed over the gap,so that no gap is produced
+                                                add_extra_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_left_node - 1)]);
+                                                if let Some(left_neighbor_index) = &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_at_start_of_this_round, &(m_phi as usize), number_virtual_nodes + (m_phi - 1) as usize)] {
+                                                    add_extra_edge(&mut edges, &nodes, *left_neighbor_index as usize, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_right_node)]);
+
+                                                }
                                             }
                                         }
                                     }
@@ -191,13 +212,28 @@ impl GridGraph {
         }
     }
 }
-
 fn add_edge(edges: &mut Vec<Vec<Edge>>, nodes: &Vec<Node>, node1_idx: usize, node2_idx_option: &Option<u32>) -> Option<f64>{
     if let Some(node2_idx) = node2_idx_option {
         // target node is part of the graph
         let distance = calculate_length_between_points_on_sphere(&nodes[node1_idx as usize], &nodes[*node2_idx as usize]);
         edges[node1_idx].push(Edge{source: node1_idx as u32, target: *node2_idx, distance: distance as u32});
         edges[*node2_idx as usize].push(Edge{source: *node2_idx, target: node1_idx as u32, distance: distance as u32});
+        return Some(distance);
+    }
+    return None;
+}
+// like add_edge but checks if the edge is already present before inserting the edge
+fn add_extra_edge(edges: &mut Vec<Vec<Edge>>, nodes: &Vec<Node>, node1_idx: usize, node2_idx_option: &Option<u32>) -> Option<f64>{
+    if let Some(node2_idx) = node2_idx_option {
+        // target node is part of the graph
+        let distance = calculate_length_between_points_on_sphere(&nodes[node1_idx as usize], &nodes[*node2_idx as usize]);
+        // check for duplicates
+        if !edges[node1_idx].iter().any(|e| {e.target == *node2_idx}) {
+            edges[node1_idx].push(Edge { source: node1_idx as u32, target: *node2_idx, distance: distance as u32 });
+        }
+        if !edges[*node2_idx as usize].iter().any(|e| {e.target == node1_idx as u32}) {
+            edges[*node2_idx as usize].push(Edge { source: *node2_idx, target: node1_idx as u32, distance: distance as u32 });
+        }
         return Some(distance);
     }
     return None;
@@ -228,4 +264,9 @@ pub fn distance(lon1_deg: f64, lat1_deg: f64, lon2_deg: f64, lat2_deg: f64) -> f
     let a = dlat_sin * dlat_sin + lat1.cos() * lat2.cos() * dlon_sin * dlon_sin;
     let c = 2.0 * (a.sqrt()).asin();
     return EARTH_RADIUS * c;
+}
+
+#[derive(Clone, PartialEq, Eq, Copy)]
+enum NodeOrientation {
+    LEFT, RIGHT, MID
 }
