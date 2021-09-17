@@ -6,8 +6,8 @@ use std::f64::consts::PI;
 use std::f64;
 use serde::{Deserialize, Serialize};
 use crate::polygon_test::PointInPolygonTest;
+use crate::algorithms::dijkstra::AdjacencyArray;
 use rayon::prelude::*;
-use crate::dijkstra::AdjacencyArray;
 use crate::config::Config;
 use std::time::Instant;
 

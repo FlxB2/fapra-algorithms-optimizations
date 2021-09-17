@@ -29,18 +29,16 @@ use crate::persistence::benchmark_repo::BenchmarkRepo;
 use serde::{Deserialize, Serialize};
 
 mod grid_graph;
-mod json_generator;
-mod dijkstra;
-mod kml_exporter;
 mod polygon_test;
 mod pbf_reader;
 mod persistence;
 mod navigator_use_case;
 mod max_testing;
-mod nearest_neighbor;
 mod cors;
 mod config;
 mod benchmark;
+mod export;
+mod algorithms;
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 struct Response {

@@ -2,8 +2,6 @@ use crate::grid_graph::{GridGraph, Node};
 use crate::pbf_reader::{read_or_create_graph};
 use crate::persistence::navigator::Navigator;
 use crate::persistence::in_memory_routing_repo::{ShipRoute, RouteRequest};
-use crate::dijkstra::{Dijkstra};
-use crate::nearest_neighbor::NearestNeighbor;
 use crate::config::Config;
 use rand::seq::{SliceRandom, IteratorRandom};
 use std::time::Instant;
@@ -11,6 +9,8 @@ use crate::benchmark::{AlgoBenchmark, BenchmarkResult, CollectedBenchmarks};
 use std::iter::Map;
 use std::collections::HashMap;
 use rocket::http::ext::IntoCollection;
+use crate::algorithms::dijkstra::Dijkstra;
+use crate::algorithms::nearest_neighbor::NearestNeighbor;
 
 pub(crate) struct InMemoryGraph {
     graph: GridGraph,
