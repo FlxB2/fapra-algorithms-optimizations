@@ -137,9 +137,10 @@ impl Dijkstra {
     }
 
     pub fn find_route(&mut self, destination_node: u32) -> Option<(Vec<u32>, u32)> {
+        /* disable caching
         if self.distances[destination_node as usize] != u32::MAX {
             return Some((self.traverse_route(&destination_node), self.distances[destination_node as usize]));
-        }
+        } */
         self.dijkstra(&destination_node);
         if self.distances[destination_node as usize] != u32::MAX {
             Some((self.traverse_route(&destination_node), self.distances[destination_node as usize]))

@@ -3,17 +3,21 @@ use std::sync::{Mutex, Arc};
 use crate::persistence::in_memory_routing_repo::{RouteRequest, ShipRoute};
 use std::thread;
 use crate::persistence::routing_repo::RoutingRepo;
+use crate::persistence::benchmark_repo::BenchmarkRepo;
+use crate::benchmark::CollectedBenchmarks;
 
 pub struct NavigatorUseCase {
     pub navigator: Arc<Mutex<Box<dyn Navigator>>>,
-    pub route_repo: Arc<Mutex<Box<dyn RoutingRepo>>>
+    pub route_repo: Arc<Mutex<Box<dyn RoutingRepo>>>,
+    pub benchmark_repo: Arc<Mutex<Box<dyn BenchmarkRepo>>>
 }
 
 impl NavigatorUseCase {
-    pub(crate) fn new(navigator: Arc<Mutex<Box<dyn Navigator>>>, route_repo: Arc<Mutex<Box<dyn RoutingRepo>>>) -> Self {
+    pub(crate) fn new(navigator: Arc<Mutex<Box<dyn Navigator>>>, route_repo: Arc<Mutex<Box<dyn RoutingRepo>>>, benchmark_repo: Arc<Mutex<Box<dyn BenchmarkRepo>>>) -> Self {
         NavigatorUseCase {
             navigator,
-            route_repo
+            route_repo,
+            benchmark_repo
         }
     }
 
@@ -34,18 +38,46 @@ impl NavigatorUseCase {
         {
             job_id = Some(self.route_repo.lock().unwrap().get_job_id());
         }
-        thread::spawn(move|| {
+        thread::spawn(move || {
             let result;
             { // extra scope to unlock navigator after route is calculated
                 let mut nav = clone.lock().unwrap();
                 result = nav.calculate_route(route);
             }
             if result.is_some() {
-               // save route
+                // save route
                 repo_clone.lock().unwrap().add_route(result.unwrap());
             }
         });
         job_id
+    }
+
+    pub(crate) fn benchmark(&self, nmb_queries: usize) {
+        let benchmark_repo = self.benchmark_repo.clone();
+        let navigator_clone = self.navigator.clone();
+        thread::spawn(move || {
+            let result;
+            {
+                result = navigator_clone.lock().expect("could not lock graph").run_benchmarks(nmb_queries)
+            }
+            benchmark_repo.lock().unwrap().set_results(result);
+        });
+    }
+
+    pub(crate) fn get_benchmark_results(&self) -> Option<CollectedBenchmarks> {
+        let lock = self.benchmark_repo.lock();
+        if lock.is_ok() {
+            return Some(lock.unwrap().get_results());
+        }
+        None
+    }
+
+    pub(crate) fn is_benchmark_finished(&self) -> bool {
+        let lock = self.benchmark_repo.lock();
+        if lock.is_err() {
+            return false;
+        }
+        lock.unwrap().is_finished()
     }
 
     pub(crate) fn get_number_nodes(&self) -> u32 {

@@ -18,11 +18,15 @@ use crate::grid_graph::{Node};
 use crate::navigator_use_case::NavigatorUseCase;
 use crate::persistence::in_memory_navigator::InMemoryGraph;
 use crate::persistence::in_memory_routing_repo::{InMemoryRoutingRepo, RouteRequest, ShipRoute};
+use crate::persistence::in_memory_benchmark_repo::InMemoryBenchmarkRepo;
 use crate::persistence::navigator::Navigator;
 use crate::persistence::routing_repo::RoutingRepo;
 use crate::max_testing::max_testing;
 use crate::cors::CORS;
 use crate::config::Config;
+use crate::benchmark::CollectedBenchmarks;
+use crate::persistence::benchmark_repo::BenchmarkRepo;
+use serde::{Deserialize, Serialize};
 
 mod grid_graph;
 mod json_generator;
@@ -36,15 +40,21 @@ mod max_testing;
 mod nearest_neighbor;
 mod cors;
 mod config;
+mod benchmark;
+
+#[derive(Serialize, Deserialize, JsonSchema, Clone)]
+struct Response {
+    msg: String
+}
 
 #[openapi]
-#[post("/build_graph")]
+#[post("/buildGraph")]
 fn build_graph(navigator_use_case: State<NavigatorUseCase>) {
     navigator_use_case.build_graph();
 }
 
 #[openapi]
-#[get("/test_graph")]
+#[get("/testGraph")]
 fn test(navigator_use_case: State<NavigatorUseCase>) -> Json<u32> {
     Json(navigator_use_case.get_number_nodes())
 }
@@ -87,6 +97,34 @@ fn job_result(id: usize, navigator_use_case: State<NavigatorUseCase>) -> Option<
     return None;
 }
 
+#[openapi]
+#[post("/startBenchmark?<nmb_queries>")]
+fn start_benchmark(nmb_queries: usize, navigator_use_case: State<NavigatorUseCase>) -> Json<Response> {
+    navigator_use_case.benchmark(nmb_queries);
+    Json(Response {
+        msg: "started benchmark".parse().unwrap()
+    })
+}
+
+#[openapi]
+#[get("/isBenchmarkRunning")]
+fn check_benchmark(navigator_use_case: State<NavigatorUseCase>) -> Json<bool> {
+    if navigator_use_case.is_benchmark_finished() {
+        return Json(true);
+    }
+    Json(false)
+}
+
+#[openapi]
+#[get("/benchmarkResults")]
+fn benchmark_results(navigator_use_case: State<NavigatorUseCase>) -> Option<Json<CollectedBenchmarks>> {
+    let results = navigator_use_case.get_benchmark_results();
+    if results.is_some() {
+        return Some(Json(results.unwrap()));
+    }
+    None
+}
+
 fn main() {
     Config::init();
     let config = Config::global();
@@ -101,19 +139,22 @@ fn main() {
         pbf_reader::read_file_and_export_geojson(config.coastlines_file(), geojson_path);
         println!("Generated geoJSON with polygons");
     }
-    rocket().launch();
+    rocket()
 }
 
-fn rocket() -> rocket::Rocket {
+fn rocket() {
     let in_memory_routing_repo = InMemoryRoutingRepo::new();
     let routing_repo_mutex: Arc<Mutex<Box<dyn RoutingRepo>>> = Arc::new(Mutex::new(Box::new(in_memory_routing_repo)));
     let in_memory_navigator = InMemoryGraph::new();
     let navigator_mutex: Arc<Mutex<Box<dyn Navigator>>> = Arc::new(Mutex::new(Box::new(in_memory_navigator)));
-    let navigator_use_case = NavigatorUseCase::new(Arc::clone(&navigator_mutex), Arc::clone(&routing_repo_mutex));
+    let in_memory_benchmark_repo = InMemoryBenchmarkRepo::new();
+    let benchmark_repo_mutex: Arc<Mutex<Box<dyn BenchmarkRepo>>> = Arc::new(Mutex::new(Box::new(in_memory_benchmark_repo)));
+    let navigator_use_case = NavigatorUseCase::new(
+        Arc::clone(&navigator_mutex), Arc::clone(&routing_repo_mutex), Arc::clone(&benchmark_repo_mutex));
     rocket::ignite()
         .attach(CORS)
         .manage(navigator_use_case)
-        .mount("/", routes_with_openapi![job_status, job_result, route, build_graph, test])
+        .mount("/", routes_with_openapi![job_status, job_result, route, build_graph, test, start_benchmark, check_benchmark, benchmark_results])
         .mount(
             "/swagger-ui/",
             make_swagger_ui(&SwaggerUIConfig {
@@ -121,4 +162,5 @@ fn rocket() -> rocket::Rocket {
                 ..Default::default()
             }),
         )
+        .launch();
 }

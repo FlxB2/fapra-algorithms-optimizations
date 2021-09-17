@@ -21,12 +21,12 @@ pub struct Config {
     #[clap(short, long)]
     force_rebuild_graph: bool,
 
-    /// Number of points which will equaly distributed over the sphere. Each point outside of a polygon will generate a node in the graph. So this is the upper bound for the number of nodes in the graph.
-    #[clap(short = 'n', long = "nodes", default_value = "10000")]
+    /// Number of points which will equally distributed over the sphere. Each point outside of a polygon will generate a node in the graph. So this is the upper bound for the number of nodes in the graph.
+    #[clap(short = 'n', long = "nodes", default_value = "1000000")]
     number_of_nodes: u32,
 
-    /// Build graph on startup. Sets wether the graph generation should be triggered at startup. Generation trough REST API will be available anyway.
-    #[clap(short, long)]
+    /// Build graph on startup. Sets weather the graph generation should be triggered at startup. Generation trough REST API will be available anyway.
+    #[clap(short = 'b', long = "build-graph")]
     build_graph_on_startup: bool,
 
     #[clap(long="max-test")]
