@@ -1,4 +1,4 @@
-use crate::benchmark::{CollectedBenchmarks};
+use crate::model::benchmark::{CollectedBenchmarks};
 use crate::persistence::benchmark_repo::BenchmarkRepo;
 use std::collections::HashMap;
 

@@ -5,11 +5,11 @@ simple grid graph representation following a classic adjacency list
 use std::f64::consts::PI;
 use std::f64;
 use serde::{Deserialize, Serialize};
-use crate::polygon_test::PointInPolygonTest;
-use crate::algorithms::dijkstra::AdjacencyArray;
 use rayon::prelude::*;
-use crate::config::Config;
 use std::time::Instant;
+use crate::config::Config;
+use crate::model::adjacency_array::AdjacencyArray;
+use crate::algorithms::polygon_test::PointInPolygonTest;
 
 /// Returns the upper bound of the number of nodes in this graph.
 pub fn get_maximum_number_of_nodes() -> usize {
@@ -18,8 +18,8 @@ pub fn get_maximum_number_of_nodes() -> usize {
 
 #[derive(Clone, Copy, Serialize, Deserialize, JsonSchema)]
 pub struct Edge {
-    pub(crate) source: u32,
-    pub(crate) target: u32,
+    pub source: u32,
+    pub target: u32,
     distance: u32,
 }
 
@@ -57,6 +57,11 @@ impl GridGraph {
         });
         let edges_and_distances_offsets: Vec<u32> = self.offsets.iter().map(|i|{i*2}).collect();
         AdjacencyArray::new(edges_and_distances_offsets, edges_and_distances)
+    }
+
+    // distance in km, should be sufficient
+    pub fn get_distance(&self, node1: u32, node2:u32) -> u64 {
+        calculate_length_between_points_on_sphere(&self.nodes[node1 as usize], &self.nodes[node2 as usize]) as u64
     }
 
     pub fn default() -> GridGraph {
@@ -261,7 +266,7 @@ pub fn distance(lon1_deg: f64, lat1_deg: f64, lon2_deg: f64, lat2_deg: f64) -> f
     let lon2 = lon2_deg.to_radians();
     let dlat_sin = ((lat2 - lat1) / 2.0).sin();
     let dlon_sin = ((lon2 - lon1) / 2.0).sin();
-    let a = dlat_sin * dlat_sin + lat1.cos() * lat2.cos() * dlon_sin * dlon_sin;
+    let a = dlat_sin.powf(2.0) + lat1.cos() * lat2.cos() * dlon_sin.powf(2.0);
     let c = 2.0 * (a.sqrt()).asin();
     return EARTH_RADIUS * c;
 }

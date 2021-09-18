@@ -1,6 +1,6 @@
-use crate::grid_graph::{Node};
 use serde::{Deserialize, Serialize};
 use crate::persistence::routing_repo::RoutingRepo;
+use crate::model::grid_graph::Node;
 
 pub(crate) struct InMemoryRoutingRepo {
     routes: Vec<ShipRoute>,

@@ -4,7 +4,7 @@ use crate::persistence::in_memory_routing_repo::{RouteRequest, ShipRoute};
 use std::thread;
 use crate::persistence::routing_repo::RoutingRepo;
 use crate::persistence::benchmark_repo::BenchmarkRepo;
-use crate::benchmark::CollectedBenchmarks;
+use crate::model::benchmark::CollectedBenchmarks;
 
 pub struct NavigatorUseCase {
     pub navigator: Arc<Mutex<Box<dyn Navigator>>>,

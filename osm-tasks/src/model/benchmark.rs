@@ -1,7 +1,6 @@
-use crate::grid_graph::Node;
-use std::iter::Map;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use crate::model::grid_graph::Node;
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Copy)]
 pub struct BenchmarkResult {
@@ -9,15 +8,14 @@ pub struct BenchmarkResult {
     pub(crate) start_node: Node,
     pub(crate) end_node: Node,
     pub(crate) nmb_nodes: usize,
-    pub(crate) time: u128,
+    pub(crate) distance: u32,
+    pub(crate) time: u64,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 pub struct AlgoBenchmark {
     pub(crate) results: Vec<BenchmarkResult>,
-
-    // TODO: smart formula for this
-    pub(crate) avg_time_per_distance: u32,
+    pub(crate) avg_distance_per_ms: f32,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]

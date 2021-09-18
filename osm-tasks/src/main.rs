@@ -6,39 +6,38 @@ extern crate rocket;
 extern crate rocket_okapi;
 extern crate rocket_contrib;
 
-use std::{env};
+use std::env;
 use std::sync::{Arc, Mutex};
 
 use rocket::State;
 use rocket_contrib::json::Json;
 use rocket_okapi::{openapi, routes_with_openapi};
 use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
-
-use crate::grid_graph::{Node};
-use crate::navigator_use_case::NavigatorUseCase;
-use crate::persistence::in_memory_navigator::InMemoryGraph;
-use crate::persistence::in_memory_routing_repo::{InMemoryRoutingRepo, RouteRequest, ShipRoute};
-use crate::persistence::in_memory_benchmark_repo::InMemoryBenchmarkRepo;
-use crate::persistence::navigator::Navigator;
-use crate::persistence::routing_repo::RoutingRepo;
-use crate::max_testing::max_testing;
-use crate::cors::CORS;
-use crate::config::Config;
-use crate::benchmark::CollectedBenchmarks;
-use crate::persistence::benchmark_repo::BenchmarkRepo;
 use serde::{Deserialize, Serialize};
 
-mod grid_graph;
-mod polygon_test;
+use model::benchmark::CollectedBenchmarks;
+
+use crate::config::Config;
+use crate::cors::CORS;
+use crate::max_testing::max_testing;
+use crate::model::grid_graph::Node;
+use crate::navigator_use_case::NavigatorUseCase;
+use crate::persistence::benchmark_repo::BenchmarkRepo;
+use crate::persistence::in_memory_benchmark_repo::InMemoryBenchmarkRepo;
+use crate::persistence::in_memory_navigator::InMemoryGraph;
+use crate::persistence::in_memory_routing_repo::{InMemoryRoutingRepo, RouteRequest, ShipRoute};
+use crate::persistence::navigator::Navigator;
+use crate::persistence::routing_repo::RoutingRepo;
+
 mod pbf_reader;
 mod persistence;
 mod navigator_use_case;
 mod max_testing;
 mod cors;
 mod config;
-mod benchmark;
 mod export;
 mod algorithms;
+mod model;
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 struct Response {

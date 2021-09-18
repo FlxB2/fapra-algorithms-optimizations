@@ -2,7 +2,7 @@ use std::time::Instant;
 use std::collections::{HashMap, HashSet};
 use osmpbf::Element;
 use rayon::prelude::*;
-use crate::polygon_test::PointInPolygonTest;
+use crate::algorithms::polygon_test::PointInPolygonTest;
 use osmpbf::ElementReader;
 use std::fs::File;
 use std::io::{Write, BufWriter, BufReader};
@@ -11,11 +11,11 @@ use std::iter::FromIterator;
 use rand::distributions::{Distribution, Uniform};
 use std::slice::Iter;
 use std::path::Path;
-use crate::grid_graph::GridGraph;
-use crate::grid_graph;
 use std::ffi::OsStr;
 use crate::export::json_generator::JsonBuilder;
 use crate::export::kml_exporter::KmlExport;
+use crate::model::grid_graph::GridGraph;
+use crate::model::grid_graph;
 
 /// tries to load the graph for this from disk and builds the graph if prebuild graph was found.
 pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, force_create: bool) -> GridGraph {

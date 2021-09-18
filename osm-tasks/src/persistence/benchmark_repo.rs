@@ -1,4 +1,4 @@
-use crate::benchmark::CollectedBenchmarks;
+use crate::model::benchmark::CollectedBenchmarks;
 
 pub trait BenchmarkRepo: Send + Sync {
     fn new() -> Self

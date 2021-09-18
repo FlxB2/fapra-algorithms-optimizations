@@ -1,4 +1,4 @@
-use crate::grid_graph::{distance, Node};
+use crate::model::grid_graph::{Node, distance};
 
 #[derive(Clone, Copy, Debug)]
 struct NodeWithId {

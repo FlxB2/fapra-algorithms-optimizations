@@ -2,44 +2,11 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fmt;
 use crate::model::adjacency_array::AdjacencyArray;
+use crate::model::grid_graph::GridGraph;
 
-#[allow(dead_code)]
-pub(crate) struct DummyGraph {
-    offsets: Vec<u32>,
-    edges: Vec<u32>,
-}
-
-#[allow(dead_code)]
-impl DummyGraph {
-    pub(crate) fn init() -> DummyGraph {
-        let offsets_old = vec![0, 2, 5, 8, 11, 16, 19, 22, 24];
-        let edges_target = vec![1, 4, 0, 2, 4, 1, 3, 4, 2, 4, 6, 0, 1, 2, 3, 5, 4, 6, 7, 3, 5, 7, 5, 6];
-        let edges_distance = vec![2, 1, 2, 2, 1, 2, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 1, 3, 1, 2, 3, 1, 1, 1];
-        let offsets: Vec<u32> = offsets_old.into_iter().map(|i| { i * 2 }).collect();
-        let mut edges = Vec::with_capacity(edges_target.len() * 2);
-        for i in 0..edges_target.len() {
-            edges.push(edges_target[i]);
-            edges.push(edges_distance[i]);
-        }
-        DummyGraph {
-            offsets,
-            edges,
-        }
-    }
-
-    fn get_neighbors_of_node_and_distances(&self, node: u32) -> &[u32] {
-        let start_offset = self.offsets[node as usize] as usize;
-        let next_node_offset = self.offsets[node as usize + 1] as usize;
-        &self.edges[start_offset..next_node_offset]
-    }
-
-    fn get_nodes_count(& self) -> u32 {
-        self.offsets.len() as u32 - 1
-    }
-}
-
-pub(crate) struct Dijkstra {
-    graph_ref: AdjacencyArray,
+pub(crate) struct AStar<'a> {
+    adj_ref: AdjacencyArray,
+    graph_ref: &'a GridGraph,
     heap: BinaryHeap<HeapItem>,
     distances: Vec<u32>,
     previous_nodes: Vec<u32>,
@@ -50,6 +17,7 @@ pub(crate) struct Dijkstra {
 struct HeapItem {
     node_id: u32,
     distance: u32,
+    priority: u64,
     previous_node: u32,
 }
 
@@ -62,7 +30,7 @@ impl fmt::Display for HeapItem {
 
 impl PartialEq for HeapItem {
     fn eq(&self, other: &Self) -> bool {
-        other.distance.eq(&self.distance)
+        other.priority.eq(&self.priority)
     }
 }
 
@@ -70,20 +38,20 @@ impl Eq for HeapItem {}
 
 impl PartialOrd for HeapItem {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(other.distance.cmp(&self.distance))
+        Some(other.priority.cmp(&self.priority))
     }
 }
 
 impl Ord for HeapItem {
     fn cmp(&self, other: &Self) -> Ordering {
-        other.distance.cmp(&self.distance)
+        other.priority.cmp(&self.priority)
     }
 }
 
-impl Dijkstra {
-    pub fn new(graph: AdjacencyArray, source_node: u32) -> Dijkstra {
+impl<'a> AStar<'a> {
+    pub fn new(grid_graph: &GridGraph, source_node: u32) -> AStar {
         //println!("New dijkstra instance with source node {}", source_node);
-        let number_of_nodes = graph.get_nodes_count() as usize;
+        let number_of_nodes = grid_graph.nodes.len();
         // Todo: Ist es sinnvoll den heap mit der Anzahl der Knoten zu initialisieren?
         let mut heap = BinaryHeap::with_capacity(number_of_nodes);
         let distances = vec![u32::MAX; number_of_nodes];
@@ -91,33 +59,14 @@ impl Dijkstra {
         heap.push(HeapItem {
             node_id: source_node,
             distance: 0,
+            priority: 0,
             previous_node: source_node,
         });
-        return Dijkstra { graph_ref: graph, heap, distances, previous_nodes, source_node };
-    }
-
-    pub fn change_source_node(&mut self, source_node: u32) {
-        if source_node == self.source_node {
-            return;
-        }
-        //println!("Reinitialized dijkstra for new source node {}", source_node);
-        self.source_node = source_node;
-        self.heap.clear();
-        self.heap.push(HeapItem {
-            node_id: source_node,
-            distance: 0,
-            previous_node: source_node,
-        });
-        self.distances.fill(u32::MAX);
-        self.previous_nodes.fill(u32::MAX);
+        return AStar { adj_ref: grid_graph.adjacency_array(), graph_ref: grid_graph, heap, distances, previous_nodes, source_node };
     }
 
     pub fn find_route(&mut self, destination_node: u32) -> Option<(Vec<u32>, u32)> {
-        /* disable caching
-        if self.distances[destination_node as usize] != u32::MAX {
-            return Some((self.traverse_route(&destination_node), self.distances[destination_node as usize]));
-        } */
-        self.dijkstra(&destination_node);
+        self.a_star(&destination_node);
         if self.distances[destination_node as usize] != u32::MAX {
             Some((self.traverse_route(&destination_node), self.distances[destination_node as usize]))
         } else {
@@ -125,7 +74,7 @@ impl Dijkstra {
         }
     }
 
-    fn dijkstra(&mut self, destination_node: &u32) {
+    fn a_star(&mut self, destination_node: &u32) {
         loop {
             if let Some(heap_element) = self.heap.pop() {
                 //println!("Popped element from heap {}", heap_element);
@@ -135,15 +84,21 @@ impl Dijkstra {
                 }
                 self.previous_nodes[heap_element.node_id as usize] = heap_element.previous_node;
                 self.distances[heap_element.node_id as usize] = heap_element.distance;
-                let neighbors_and_distances = self.graph_ref.get_neighbors_of_node_and_distances(heap_element.node_id);
+                let neighbors_and_distances = self.adj_ref.get_neighbors_of_node_and_distances(heap_element.node_id);
+                //println!("distance {}", dist_to_dest);
                 for i in (0..neighbors_and_distances.len()).step_by(2) {
                     let next_node = neighbors_and_distances[i];
-                    let next_node_distance = neighbors_and_distances[i + 1];
+                    let next_node_distance = neighbors_and_distances[i + 1] as u64;
+
+                    // heuristic
+                    let heuristic = self.graph_ref.get_distance(next_node, *destination_node);
+                    //let heuristic = 0;
                     if self.distances[next_node as usize] == u32::MAX {
                         //println!("add edge form {} to {} with dist {}", heap_element.node_id, next_node, next_node_distance);
                         self.heap.push(HeapItem {
                             node_id: next_node,
-                            distance: next_node_distance + heap_element.distance,
+                            distance: (next_node_distance as u32) + heap_element.distance,
+                            priority: next_node_distance + (heap_element.distance as u64) + heuristic,
                             previous_node: heap_element.node_id,
                         });
                     }
