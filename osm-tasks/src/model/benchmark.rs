@@ -9,6 +9,7 @@ pub struct BenchmarkResult {
     pub(crate) end_node: Node,
     pub(crate) nmb_nodes: usize,
     pub(crate) distance: u32,
+    pub(crate) amount_nodes_popped: u32,
     pub(crate) time: u64,
 }
 

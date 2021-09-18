@@ -82,7 +82,8 @@ impl Navigator for InMemoryGraph {
                 end_node: self.graph.nodes[end_node as usize],
                 nmb_nodes: nodes_route.len(),
                 distance,
-                time: u64::try_from(time).expect("time too big"), query_id
+                time: u64::try_from(time).expect("time too big"), query_id,
+                amount_nodes_popped: route_and_distance.2
             });
         }
         None
@@ -103,7 +104,8 @@ impl Navigator for InMemoryGraph {
                 end_node: self.graph.nodes[end_node as usize],
                 nmb_nodes: nodes_route.len(),
                 distance,
-                time: u64::try_from(time).expect("time too big"), query_id
+                time: u64::try_from(time).expect("time too big"), query_id,
+                amount_nodes_popped: route_and_distance.2
             });
         }
         None

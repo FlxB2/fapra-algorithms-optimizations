@@ -44,6 +44,7 @@ pub(crate) struct Dijkstra {
     distances: Vec<u32>,
     previous_nodes: Vec<u32>,
     source_node: u32,
+    amount_nodes_popped: u32,
 }
 
 #[derive(Debug)]
@@ -93,7 +94,7 @@ impl Dijkstra {
             distance: 0,
             previous_node: source_node,
         });
-        return Dijkstra { graph_ref: graph, heap, distances, previous_nodes, source_node };
+        return Dijkstra { graph_ref: graph, heap, distances, previous_nodes, source_node, amount_nodes_popped = 0 };
     }
 
     pub fn change_source_node(&mut self, source_node: u32) {
@@ -128,6 +129,7 @@ impl Dijkstra {
     fn dijkstra(&mut self, destination_node: &u32) {
         loop {
             if let Some(heap_element) = self.heap.pop() {
+                self.amount_nodes_popped += 1;
                 //println!("Popped element from heap {}", heap_element);
                 if heap_element.distance >= self.distances[heap_element.node_id as usize] {
                     //println!("Skipping heap element {:?} because lower distance is already set: {}", heap_element, self.distances[heap_element.node_id as usize]);

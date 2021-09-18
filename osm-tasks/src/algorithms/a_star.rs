@@ -11,6 +11,7 @@ pub(crate) struct AStar<'a> {
     distances: Vec<u32>,
     previous_nodes: Vec<u32>,
     source_node: u32,
+    amount_nodes_popped: u32,
 }
 
 #[derive(Debug)]
@@ -62,13 +63,13 @@ impl<'a> AStar<'a> {
             priority: 0,
             previous_node: source_node,
         });
-        return AStar { adj_ref: grid_graph.adjacency_array(), graph_ref: grid_graph, heap, distances, previous_nodes, source_node };
+        return AStar { adj_ref: grid_graph.adjacency_array(), graph_ref: grid_graph, heap, distances, previous_nodes, source_node, amount_nodes_popped: 0 };
     }
 
-    pub fn find_route(&mut self, destination_node: u32) -> Option<(Vec<u32>, u32)> {
+    pub fn find_route(&mut self, destination_node: u32) -> Option<(Vec<u32>, u32, u32)> {
         self.a_star(&destination_node);
         if self.distances[destination_node as usize] != u32::MAX {
-            Some((self.traverse_route(&destination_node), self.distances[destination_node as usize]))
+            Some((self.traverse_route(&destination_node), self.distances[destination_node as usize], self.amount_nodes_popped))
         } else {
             None
         }
@@ -77,6 +78,7 @@ impl<'a> AStar<'a> {
     fn a_star(&mut self, destination_node: &u32) {
         loop {
             if let Some(heap_element) = self.heap.pop() {
+                self.amount_nodes_popped += 1;
                 //println!("Popped element from heap {}", heap_element);
                 if heap_element.distance >= self.distances[heap_element.node_id as usize] {
                     //println!("Skipping heap element {:?} because lower distance is already set: {}", heap_element, self.distances[heap_element.node_id as usize]);
