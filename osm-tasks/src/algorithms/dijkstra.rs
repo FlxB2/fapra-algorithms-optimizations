@@ -1,7 +1,6 @@
-use std::cmp::Ordering;
 use std::collections::BinaryHeap;
-use std::fmt;
 use crate::model::adjacency_array::AdjacencyArray;
+use crate::model::heap_item::HeapItem;
 
 #[allow(dead_code)]
 pub(crate) struct DummyGraph {
@@ -47,40 +46,6 @@ pub(crate) struct Dijkstra {
     amount_nodes_popped: u32,
 }
 
-#[derive(Debug)]
-struct HeapItem {
-    node_id: u32,
-    distance: u32,
-    previous_node: u32,
-}
-
-impl fmt::Display for HeapItem {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Customize so only `x` and `y` are denoted.
-        write!(f, "node_id: {}, distance: {}, previous_node: {}", self.node_id, self.distance, self.previous_node)
-    }
-}
-
-impl PartialEq for HeapItem {
-    fn eq(&self, other: &Self) -> bool {
-        other.distance.eq(&self.distance)
-    }
-}
-
-impl Eq for HeapItem {}
-
-impl PartialOrd for HeapItem {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(other.distance.cmp(&self.distance))
-    }
-}
-
-impl Ord for HeapItem {
-    fn cmp(&self, other: &Self) -> Ordering {
-        other.distance.cmp(&self.distance)
-    }
-}
-
 impl Dijkstra {
     pub fn new(graph: AdjacencyArray, source_node: u32) -> Dijkstra {
         //println!("New dijkstra instance with source node {}", source_node);
@@ -94,7 +59,7 @@ impl Dijkstra {
             distance: 0,
             previous_node: source_node,
         });
-        return Dijkstra { graph_ref: graph, heap, distances, previous_nodes, source_node, amount_nodes_popped = 0 };
+        return Dijkstra { graph_ref: graph, heap, distances, previous_nodes, source_node, amount_nodes_popped: 0 };
     }
 
     pub fn change_source_node(&mut self, source_node: u32) {
@@ -113,14 +78,14 @@ impl Dijkstra {
         self.previous_nodes.fill(u32::MAX);
     }
 
-    pub fn find_route(&mut self, destination_node: u32) -> Option<(Vec<u32>, u32)> {
+    pub fn find_route(&mut self, destination_node: u32) -> Option<(Vec<u32>, u32, u32)> {
         /* disable caching
         if self.distances[destination_node as usize] != u32::MAX {
             return Some((self.traverse_route(&destination_node), self.distances[destination_node as usize]));
         } */
         self.dijkstra(&destination_node);
         if self.distances[destination_node as usize] != u32::MAX {
-            Some((self.traverse_route(&destination_node), self.distances[destination_node as usize]))
+            Some((self.traverse_route(&destination_node), self.distances[destination_node as usize], self.amount_nodes_popped))
         } else {
             None
         }

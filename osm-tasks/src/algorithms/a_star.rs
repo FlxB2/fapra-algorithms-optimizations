@@ -94,7 +94,7 @@ impl<'a> AStar<'a> {
 
                     // heuristic
                     let heuristic = self.graph_ref.get_distance(next_node, *destination_node);
-                    //let heuristic = 0;
+
                     if self.distances[next_node as usize] == u32::MAX {
                         //println!("add edge form {} to {} with dist {}", heap_element.node_id, next_node, next_node_distance);
                         self.heap.push(HeapItem {

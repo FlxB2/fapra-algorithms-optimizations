@@ -19,7 +19,6 @@ use model::benchmark::CollectedBenchmarks;
 
 use crate::config::Config;
 use crate::cors::CORS;
-use crate::max_testing::max_testing;
 use crate::model::grid_graph::Node;
 use crate::navigator_use_case::NavigatorUseCase;
 use crate::persistence::benchmark_repo::BenchmarkRepo;
@@ -28,16 +27,16 @@ use crate::persistence::in_memory_navigator::InMemoryGraph;
 use crate::persistence::in_memory_routing_repo::{InMemoryRoutingRepo, RouteRequest, ShipRoute};
 use crate::persistence::navigator::Navigator;
 use crate::persistence::routing_repo::RoutingRepo;
+use crate::import::pbf_reader;
 
-mod pbf_reader;
 mod persistence;
 mod navigator_use_case;
-mod max_testing;
 mod cors;
 mod config;
 mod export;
 mod algorithms;
 mod model;
+mod import;
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 struct Response {
@@ -125,11 +124,6 @@ fn benchmark_results(navigator_use_case: State<NavigatorUseCase>) -> Option<Json
 fn main() {
     Config::init();
     let config = Config::global();
-    if config.max_test(){
-        println!("{spacer:?}\n  ====== Testing mode. Will not start server!! =======\n{spacer:?}",spacer=String::from_utf8(vec![b'='; 50]));
-        max_testing();
-        return;
-    }
     println!("Using file {} and a maximum number of {} nodes.", config.coastlines_file(), config.number_of_nodes());
     if let Some(geojson_path) = config.geojson_export_path().as_ref() {
         println!("Generate and export polygons as geoJSON");

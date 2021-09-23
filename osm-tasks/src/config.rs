@@ -28,12 +28,6 @@ pub struct Config {
     /// Build graph on startup. Sets weather the graph generation should be triggered at startup. Generation trough REST API will be available anyway.
     #[clap(short = 'b', long = "build-graph")]
     build_graph_on_startup: bool,
-
-    #[clap(long="max-test")]
-    max_test: bool,
-
-    // Todo: Option for KML export
-
 }
 
 impl Config {
@@ -67,8 +61,5 @@ impl Config {
     }
     pub fn geojson_export_path(&self) -> &Option<String> {
         &self.geojson_export_path
-    }
-    pub fn max_test(&self) -> bool {
-        self.max_test
     }
 }
