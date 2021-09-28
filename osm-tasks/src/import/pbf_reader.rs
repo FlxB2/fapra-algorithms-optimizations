@@ -25,6 +25,7 @@ pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, 
     graph_file_name.push_str(".");
     graph_file_name.push_str(&*grid_graph::get_maximum_number_of_nodes().to_string());
     graph_file_name.push_str(".bin");
+    println!("force create? {}, filename {}", force_create, graph_file_name);
     let path = osm_path.with_file_name(graph_file_name);
     if !force_create {
         let disk_graph = load_graph_from_disk(&path);
@@ -32,6 +33,8 @@ pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, 
             let gra = disk_graph.unwrap();
             println!("Loaded graph from disk \"{}\". Node count: {}", path.to_str().unwrap(), gra.nodes.len());
             return gra;
+        } else {
+            println!("graph not ok");
         }
     }
     let polygons = read_file(osm_path.to_str().unwrap());

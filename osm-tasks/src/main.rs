@@ -121,6 +121,12 @@ fn benchmark_results(navigator_use_case: State<NavigatorUseCase>) -> Option<Json
     None
 }
 
+#[openapi]
+#[get("/testCH")]
+fn test_ch(navigator_use_case: State<NavigatorUseCase>) {
+    navigator_use_case.test_ch();
+}
+
 fn main() {
     Config::init();
     let config = Config::global();
@@ -145,7 +151,7 @@ fn rocket() {
     rocket::ignite()
         .attach(CORS)
         .manage(navigator_use_case)
-        .mount("/", routes_with_openapi![job_status, job_result, route, build_graph, test, start_benchmark, check_benchmark, benchmark_results])
+        .mount("/", routes_with_openapi![job_status, job_result, route, build_graph, test, start_benchmark, check_benchmark, benchmark_results, test_ch])
         .mount(
             "/swagger-ui/",
             make_swagger_ui(&SwaggerUIConfig {

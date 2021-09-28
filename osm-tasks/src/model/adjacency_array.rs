@@ -21,4 +21,11 @@ impl AdjacencyArray {
     pub(crate) fn get_nodes_count(&self) -> u32 {
         self.edges_and_distances_offsets.len() as u32 - 1
     }
+
+    /*
+    pub(crate) fn remove_neighbors_edges(&mut self, node: u32) {
+        for i in (self.edges_and_distances_offsets[node as usize] as usize)..(self.edges_and_distances_offsets[node as usize + 1] as usize) {
+            self.edges_and_distances[i] = u32::MAX;
+        }
+    } */
 }
