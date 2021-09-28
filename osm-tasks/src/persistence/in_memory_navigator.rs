@@ -77,7 +77,7 @@ impl Navigator for InMemoryGraph {
             let route: Vec<u32> = route_and_distance.0;
             let distance = route_and_distance.1;
             let nodes_route: Vec<Node> = route.into_iter().map(|i| { self.graph.nodes[i as usize] }).collect();
-            let time: u128 = start_time.elapsed().as_millis();
+            let time: u128 = start_time.elapsed().as_nanos();
             println!("Dikstra calculated route from {} to {} with distance {} in {} ns, or {} ms", start_node, end_node, distance, start_time.elapsed().as_nanos(), start_time.elapsed().as_millis());
             return Some(BenchmarkResult {
                 start_node: self.graph.nodes[start_node as usize],
@@ -100,7 +100,7 @@ impl Navigator for InMemoryGraph {
             let route: Vec<u32> = route_and_distance.0;
             let distance = route_and_distance.1;
             let nodes_route: Vec<Node> = route.into_iter().map(|i| { self.graph.nodes[i as usize] }).collect();
-            let time: u128 = start_time.elapsed().as_millis();
+            let time: u128 = start_time.elapsed().as_nanos();
             println!("A Star calculated route from {} to {} with distance {} and number_nodes {} in {} ns, or {} ms",
                      start_node, end_node, distance, nodes_route.len(), start_time.elapsed().as_nanos(), start_time.elapsed().as_millis());
             return Some(BenchmarkResult {
@@ -124,7 +124,7 @@ impl Navigator for InMemoryGraph {
             let route: Vec<u32> = route_and_distance.0;
             let distance = route_and_distance.1;
             let nodes_route: Vec<Node> = route.into_iter().map(|i| { self.graph.nodes[i as usize] }).collect();
-            let time: u128 = start_time.elapsed().as_millis();
+            let time: u128 = start_time.elapsed().as_nanos();
             println!("Bd Dijkstra calculated route from {} to {} with distance {} and number_nodes {} in {} ns, or {} ms",
                      start_node, end_node, distance, nodes_route.len(), start_time.elapsed().as_nanos(), start_time.elapsed().as_millis());
             return Some(BenchmarkResult {
@@ -192,24 +192,22 @@ impl Navigator for InMemoryGraph {
                 bd_dijkstra_time_per_distance.push((bd_dijkstra_res.distance as u64 / bd_dijkstra_res.time) as f32);
             }
         }
-        let mut results: HashMap<String, AlgoBenchmark> = HashMap::new();
-        results.insert(String::from("Dijkstra"), AlgoBenchmark {
-            results: dijkstra_results_list,
-            avg_distance_per_ms: average(dijkstra_time_per_distance.as_slice()),
-        });
-        results.insert(String::from("AStar"), AlgoBenchmark {
-            results: a_star_results_list,
-            avg_distance_per_ms: average(a_star_time_per_distance.as_slice()),
-        });
-        results.insert(String::from("BdDijkstra"), AlgoBenchmark {
-            results: bd_dijkstra_results_list,
-            avg_distance_per_ms: average(bd_dijkstra_time_per_distance.as_slice()),
-        });
+        let mut results = CollectedBenchmarks {
+            dijkstra: AlgoBenchmark {
+                results: dijkstra_results_list,
+                avg_distance_per_ms: average(dijkstra_time_per_distance.as_slice()),
+            },
+            a_star: AlgoBenchmark {
+                results: a_star_results_list,
+                avg_distance_per_ms: average(a_star_time_per_distance.as_slice()),
+            },
+            bd_dijkstra: AlgoBenchmark {
+                results: bd_dijkstra_results_list,
+                avg_distance_per_ms: average(bd_dijkstra_time_per_distance.as_slice()),
+            }
+        };
 
-
-        CollectedBenchmarks {
-            results
-        }
+        return results;
     }
 }
 

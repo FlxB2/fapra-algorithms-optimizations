@@ -29,6 +29,15 @@ pub struct Node {
     pub lon: f64,
 }
 
+impl Node {
+    pub(crate) fn new() -> Node {
+        Node {
+            lat: 0.0,
+            lon: 0.0
+        }
+    }
+}
+
 impl Into<(f64,f64)> for Node {
     fn into(self) -> (f64, f64) {
         (self.lon, self.lat)

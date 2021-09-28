@@ -13,13 +13,38 @@ pub struct BenchmarkResult {
     pub(crate) time: u64,
 }
 
+impl BenchmarkResult {
+    fn new() -> BenchmarkResult {
+        BenchmarkResult {
+            query_id: 0,
+            start_node: Node::new(),
+            end_node: Node::new(),
+            nmb_nodes: 0,
+            distance: 0,
+            amount_nodes_popped: 0,
+            time: 0
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 pub struct AlgoBenchmark {
     pub(crate) results: Vec<BenchmarkResult>,
     pub(crate) avg_distance_per_ms: f32,
 }
 
+impl AlgoBenchmark {
+    pub(crate) fn new() -> AlgoBenchmark {
+        AlgoBenchmark {
+            results: vec![],
+            avg_distance_per_ms: 0.0
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 pub struct CollectedBenchmarks {
-    pub(crate) results: HashMap<String, AlgoBenchmark>
+    pub(crate) dijkstra: AlgoBenchmark,
+    pub(crate) a_star: AlgoBenchmark,
+    pub(crate) bd_dijkstra: AlgoBenchmark
 }

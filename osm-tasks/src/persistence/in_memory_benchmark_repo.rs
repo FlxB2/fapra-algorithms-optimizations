@@ -1,4 +1,4 @@
-use crate::model::benchmark::{CollectedBenchmarks};
+use crate::model::benchmark::{CollectedBenchmarks, AlgoBenchmark};
 use crate::persistence::benchmark_repo::BenchmarkRepo;
 use std::collections::HashMap;
 
@@ -11,7 +11,9 @@ impl BenchmarkRepo for InMemoryBenchmarkRepo {
     fn new() -> InMemoryBenchmarkRepo {
         InMemoryBenchmarkRepo {
             benchmarks: CollectedBenchmarks {
-                results: HashMap::new()
+                dijkstra: AlgoBenchmark::new(),
+                a_star: AlgoBenchmark::new(),
+                bd_dijkstra: AlgoBenchmark::new()
             },
             finished: false
         }

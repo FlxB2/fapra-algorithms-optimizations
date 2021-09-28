@@ -1,4 +1,4 @@
-import {AfterViewInit, Component, TemplateRef} from '@angular/core';
+import { AfterViewInit, Component, TemplateRef, ViewChild } from '@angular/core';
 import {
   DomEvent,
   DomUtil,
@@ -15,11 +15,13 @@ import {
   popup,
   tileLayer
 } from 'leaflet';
-import {ApiService} from '../../generated/services/api.service';
-import {ShipRoute} from '../../generated/models/ship-route';
+import { ApiService } from '../../generated/services/api.service';
+import { ShipRoute } from '../../generated/models/ship-route';
 import 'leaflet.geodesic';
-import {BsModalRef, BsModalService} from 'ngx-bootstrap/modal';
-
+import { BsModalRef, BsModalService } from 'ngx-bootstrap/modal';
+import { CollectedBenchmarks } from '../../generated/models/collected-benchmarks';
+import * as am4core from "@amcharts/amcharts4/core";
+import * as am4charts from "@amcharts/amcharts4/charts";
 
 // From https://www.iconfinder.com/icons/4908137/destination_ensign_flag_pole_signal_icon
 // No link back required
@@ -34,7 +36,11 @@ const destinationIcon = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiA/P
   styleUrls: ['./app.component.css']
 })
 export class AppComponent implements AfterViewInit {
-  modalRef: BsModalRef;
+  modalRefHelp: BsModalRef;
+  modalRefData: BsModalRef;
+
+  @ViewChild('data') public templateref: TemplateRef<any>;
+
 
   constructor(private apiService: ApiService, private modalService: BsModalService) {
   }
@@ -47,6 +53,7 @@ export class AppComponent implements AfterViewInit {
   endLat = 0.0;
   endLon = 0.0;
   jobId = 0;
+  benchmarkRuns = 10;
 
   currentRoute: Polyline;
   markerStart: Marker;
@@ -67,7 +74,7 @@ export class AppComponent implements AfterViewInit {
   };
 
   openModal(template: TemplateRef<any>) {
-    this.modalRef = this.modalService.show(template);
+    this.modalRefHelp = this.modalService.show(template);
   }
 
   initMap(): void {
@@ -76,7 +83,6 @@ export class AppComponent implements AfterViewInit {
       this.defineYourWaypointOnClick(e);
     });
   }
-
 
   ngAfterViewInit(): void {
     this.initMap();
@@ -134,6 +140,54 @@ export class AppComponent implements AfterViewInit {
     return btn;
   }
 
+  requestBenchmark() {
+    this.apiService.startBenchmark({ nmb_queries: this.benchmarkRuns }).subscribe(
+      () => this.showAlert('Success, benchmark running', 'info'),
+      (error) => this.showAlert(error.toString(), 'danger')
+    )
+  }
+
+  requestBenchmarkResult() {
+    this.apiService.benchmarkResults().subscribe(
+      (data: CollectedBenchmarks) => {
+            this.generateChart(data);
+      },
+      (error) => this.showAlert(error.toString(), 'danger'));
+  }
+
+  generateChart(data: CollectedBenchmarks) {
+    this.modalRefData = this.modalService.show(this.templateref, {class: 'modal-lg'});
+
+    let dijkstra_results = data.dijkstra.results
+    let bd_dijkstra_results = data.bd_dijkstra.results
+    let a_star_results = data.a_star.results
+
+    let chart = am4core.create("chart", am4charts.XYChart);
+    chart.data = data as any
+
+    let yAxis = chart.yAxes.push(new am4charts.ValueAxis());
+    let xAxis = chart.xAxes.push(new am4charts.ValueAxis());
+
+    let series = chart.series.push(new am4charts.LineSeries());
+    series.name = "Dijkstra"
+    series.data = dijkstra_results
+    series.dataFields.valueY = "time"
+    series.dataFields.valueX = "query_id"
+
+    let seriesBD = chart.series.push(new am4charts.LineSeries());
+    seriesBD.name = "Dijkstra"
+    seriesBD.data = bd_dijkstra_results
+    seriesBD.dataFields.valueY = "time"
+    seriesBD.dataFields.valueX = "query_id"
+
+    let seriesA = chart.series.push(new am4charts.LineSeries());
+    seriesA.name = "AStar"
+    seriesA.data = a_star_results
+    seriesA.dataFields.valueY = "time"
+    seriesA.dataFields.valueX = "query_id"
+
+  }
+
   requestRoute() {
     this.apiService.route({
       lat_start: this.startLat, lon_start: this.startLon, lat_end: this.endLat, lon_end: this.endLon
@@ -142,8 +196,10 @@ export class AppComponent implements AfterViewInit {
         this.showAlert('calculating result, jobId: ' + data, 'info');
         this.jobId = data;
         // try to fetch the result after one second
-        setTimeout(() => { this.requestResult(); }, 1000);
-        },
+        setTimeout(() => {
+          this.requestResult();
+        }, 1000);
+      },
       () => this.showAlert('Could not calculate result did you build the graph?', 'danger'));
   }
 
@@ -155,7 +211,7 @@ export class AppComponent implements AfterViewInit {
         const lines: LatLngTuple[][] = [[]];
         let lastLon = 0;
         res.nodes.forEach((node) => {
-          if ((Math.floor(node.lon) === 180 && lastLon < 0) || (Math.floor(node.lon) === -180 && lastLon > 0) ) {
+          if ((Math.floor(node.lon) === 180 && lastLon < 0) || (Math.floor(node.lon) === -180 && lastLon > 0)) {
             // Crossed 180 degree line -> split line
             lines.push([]);
           }
@@ -168,7 +224,7 @@ export class AppComponent implements AfterViewInit {
         this.map.addLayer(this.currentRoute);
         this.showAlert('Success! Route length in m: ' + res.distance, 'info');
       }, () => this.showAlert('Could not fetch result did you build the graph?' +
-      ' And did you check the id? Calculating a route might take a while', 'danger')
+        ' And did you check the id? Calculating a route might take a while', 'danger')
     );
   }
 
