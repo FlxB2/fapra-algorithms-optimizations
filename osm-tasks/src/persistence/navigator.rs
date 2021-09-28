@@ -10,6 +10,7 @@ pub trait Navigator: Send + Sync {
     fn benchmark_dijkstra(&mut self, start_node: u32, end_node: u32, query_id: usize) -> Option<BenchmarkResult>;
     fn benchmark_a_star(&mut self, start_node: u32, end_node: u32, query_id: usize) -> Option<BenchmarkResult>;
     fn benchmark_bd_dijkstra(&mut self, start_node: u32, end_node: u32, query_id: usize) -> Option<BenchmarkResult>;
-        fn get_number_nodes(&self) -> u32;
+    fn get_number_nodes(&self) -> u32;
+    fn test_ch(&mut self);
     fn run_benchmarks(&mut self, nmb_queries: usize) -> CollectedBenchmarks;
 }

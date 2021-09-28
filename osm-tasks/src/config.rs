@@ -54,7 +54,7 @@ impl Config {
         self.force_rebuild_graph
     }
     pub fn number_of_nodes(&self) -> u32 {
-        self.number_of_nodes
+        return 1000000;
     }
     pub fn build_graph_on_startup(&self) -> bool {
         self.build_graph_on_startup

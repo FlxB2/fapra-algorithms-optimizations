@@ -92,6 +92,10 @@ impl NavigatorUseCase {
         n.get_route(id)
     }
 
+    pub(crate) fn test_ch(&self) {
+        self.navigator.lock().unwrap().test_ch();
+    }
+
     #[allow(dead_code)]
     pub(crate) fn get_job_id(&self) -> u32 {
         self.route_repo.lock().unwrap().get_job_id()

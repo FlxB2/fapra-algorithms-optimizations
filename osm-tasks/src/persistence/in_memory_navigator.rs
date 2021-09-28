@@ -13,6 +13,7 @@ use std::convert::TryFrom;
 use termion::color;
 use crate::algorithms::bd_dijkstra::BdDijkstra;
 use crate::import::pbf_reader::read_or_create_graph;
+use crate::algorithms::contraction_hierarchies::ContractionHierarchies;
 
 pub(crate) struct InMemoryGraph {
     graph: GridGraph,
@@ -138,6 +139,11 @@ impl Navigator for InMemoryGraph {
             });
         }
         None
+    }
+
+    fn test_ch(&mut self) {
+        let mut ch = ContractionHierarchies::new(self.graph.clone(), 32);
+        ch.preprocessing();
     }
 
     fn get_number_nodes(&self) -> u32 {
