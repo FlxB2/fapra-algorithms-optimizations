@@ -47,8 +47,8 @@ impl ContractionHierarchies  {
         return ContractionHierarchies {
             graph_ref: graph,
             modified_graph: GridGraph {
+                number_edges: 0,
                 number_nodes: 0,
-                offsets: vec![],
                 edges: vec![],
                 nodes: vec![],
                 //removed_edges: Default::default()
@@ -95,11 +95,11 @@ impl ContractionHierarchies  {
             // ink rank
             rank += 1;
 
-            let mut modified_adj_array = self.modified_graph.adjacency_array_consider_removed_nodes(&self.removed_edges);
+            //let mut modified_adj_array = self.modified_graph.adjacency_array_consider_removed_nodes(&self.removed_edges);
 
             // create shortcut set S and add them to new_e
             for i in c {
-                self.find_shortcuts(*i, &modified_adj_array);
+                //self.find_shortcuts(*i, &modified_adj_array);
                 // remove adjacent edges of i
                 self.modified_graph.remove_edges_of_node(*i);
                 self.removed_edges.insert(*i, true);
@@ -109,8 +109,8 @@ impl ContractionHierarchies  {
             self.shortcuts_start_indexes.insert(rank, self.modified_graph.edges.len());
             println!("new index: {}", self.modified_graph.edges.len());
             for s in &self.shortcuts {
-                self.modified_graph.edges.push(s.edge);
-                self.modified_graph.offsets[s.edge.source as usize] += 1;
+                //self.modified_graph.edges.push(s.edge);
+                //self.modified_graph.offsets[s.edge.source as usize] += 1;
 
 
             }
@@ -306,8 +306,5 @@ impl ContractionHierarchies  {
 }
 
 fn calc_number_edges(v: u32, graph: &GridGraph) -> u32 {
-    if v > 0 {
-        return graph.offsets[v as usize] - graph.offsets[v as usize - 1];
-    }
-    return graph.offsets[v as usize];
+    return graph.edges[v as usize].len() as u32;
 }

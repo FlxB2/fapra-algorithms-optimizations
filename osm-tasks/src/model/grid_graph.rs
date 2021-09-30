@@ -46,55 +46,42 @@ impl Into<(f64, f64)> for Node {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GridGraph {
+    pub number_edges: i64,
     pub number_nodes: i64,
-    // index equals node id
-    // defines number of neighbors for node at index
-    pub offsets: Vec<u32>,
-    pub edges: Vec<Edge>,
+    // index equals node id of source
+    pub edges: Vec<Vec<Edge>>,
     // index equals node id
     pub nodes: Vec<Node>,
 }
 
 impl GridGraph {
-    /// Generates an adjacency array representation of the edges of this graph
+    // Generates an adjacency array representation of the edges of this graph
     pub fn adjacency_array(&self) -> AdjacencyArray {
-        let mut edges_and_distances = vec![u32::MAX; self.edges.len() * 2];
-        self.edges.iter().enumerate().for_each(|(i, edge)| {
-            edges_and_distances[i * 2] = edge.target;
-            edges_and_distances[i * 2 + 1] = edge.distance;
-        });
-        let edges_and_distances_offsets: Vec<u32> = self.offsets.iter().map(|i| { i * 2 }).collect();
-        AdjacencyArray::new(edges_and_distances_offsets, edges_and_distances)
-    }
+        let mut edges_and_distances = vec![u32::MAX; (self.number_edges * 2) as usize];
+        let mut offsets = vec![u32::MAX; self.number_nodes as usize + 1];
+        let mut counter = 0;
+        let mut prev_offset = 0;
+        self.edges.iter().enumerate().for_each(|(i, edges)| {
+            // for each node add all edges to adj array
+            for j in 0..edges.len() {
+                edges_and_distances[counter * 2] = edges[j].target;
+                edges_and_distances[counter * 2 + 1] = edges[j].distance;
+                counter += 1;
+            }
 
-
-    pub fn adjacency_array_consider_removed_nodes(&self, removed_edges: &HashMap<u32, bool>) -> AdjacencyArray {
-        let mut edges_and_distances = vec![u32::MAX; self.edges.len() * 2];
-        self.edges.iter().enumerate().for_each(|(i, edge)| {
-            edges_and_distances[i * 2] = edge.target;
-            edges_and_distances[i * 2 + 1] = edge.distance;
+            offsets[i] = prev_offset;
+            prev_offset += self.edges[i].len() as u32 * 2
         });
-        let edges_and_distances_offsets: Vec<u32> = self.offsets.iter().map(|i| { i * 2 }).collect();
-        AdjacencyArray::new(edges_and_distances_offsets, edges_and_distances)
+        offsets[self.number_nodes as usize] = prev_offset;
+        return AdjacencyArray::new(offsets, edges_and_distances);
     }
 
     pub fn remove_edges_of_node(&mut self, v: u32) {
-        // this is really expensive and the whole data structure should be changed
-
-        // shift back offsets
-        if v > 0 {
-            let number_neighbors = self.offsets[v as usize] - self.offsets[v as usize - 1];
-            // remove edges
-            self.edges.drain((self.offsets[v as usize] as usize..self.offsets[v as usize + 1] as usize));
-            for i in v..(self.offsets.len() as u32) {
-                self.offsets[i as usize] -= number_neighbors;
-            }
-        }
+        self.edges[v as usize] = vec![];
     }
 
-    pub fn add_new_edge(&mut self, edges: Vec<Edge>) {
-        self.edges.push(s.edge);
-        self.offsets[s.edge.source as usize] += 1;
+    pub fn add_new_edge(&mut self, edge: Edge) {
+        self.edges[edge.source as usize].push(edge)
     }
 
     // distance in km, should be sufficient
@@ -104,17 +91,16 @@ impl GridGraph {
 
     pub fn default() -> GridGraph {
         GridGraph {
+            number_edges: 0,
             number_nodes: 0,
-            offsets: Vec::new(),
             edges: Vec::new(),
             nodes: Vec::new(),
-            //removed_edges: HashMap::new(),
         }
     }
-    pub fn new(polygon_test: &PointInPolygonTest) -> GridGraph {
+    pub fn new(polygon_test: &PointInPolygonTest, number_nodes: usize) -> GridGraph {
         // mapping from virtual nodes indices (0..NUMBER_NODES) (includes nodes inside of polygons) to the actual nodes of the grid (includes only nodes of the graph)
         let start_time = Instant::now();
-        let maximum_number_of_nodes = get_maximum_number_of_nodes();
+        let maximum_number_of_nodes = number_nodes;
         let mut virtual_nodes_to_index: Vec<Option<u32>> = vec![None; maximum_number_of_nodes];
         let mut number_virtual_nodes: usize = 0;
         let mut number_graph_nodes: usize = 0;
@@ -231,6 +217,7 @@ impl GridGraph {
             number_virtual_nodes_before_last_round = number_virtual_nodes_at_start_of_this_round;
         }
         // flatten edge array to 1 dimension and calculate offsets
+        /*
         let mut offsets = Vec::with_capacity(edges.len() + 1);
         offsets.push(0);
         let mut last_offset = 0;
@@ -238,20 +225,24 @@ impl GridGraph {
             last_offset = edges[i].len() as u32 + last_offset;
             offsets.push(last_offset);
         }
-        let flattened_edges: Vec<Edge> = edges.concat();
+        let flattened_edges: Vec<Edge> = edges.concat(); */
+
+        let mut number_edges = 0;
+        edges.iter().for_each(|e| number_edges += e.len());
+
         println!("number even distributed nodes {}", number_virtual_nodes);
         println!("number placed nodes {}", number_graph_nodes);
-        println!("number edges {}", flattened_edges.len());
+        println!("number edges {}", number_edges);
 
         // Remove unset nodes from nodes array
         nodes.truncate(number_graph_nodes);
+        edges.truncate(number_graph_nodes);
         println!("Generated graph in {} seconds", start_time.elapsed().as_secs());
         GridGraph {
+            number_edges: number_edges as i64,
             number_nodes: number_graph_nodes as i64,
-            edges: flattened_edges,
-            offsets,
+            edges,
             nodes,
-            //removed_edges: HashMap::new()
         }
     }
 }

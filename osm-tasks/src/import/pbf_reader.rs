@@ -18,13 +18,13 @@ use crate::model::grid_graph::GridGraph;
 use crate::model::grid_graph;
 
 /// tries to load the graph for this from disk and builds the graph if prebuild graph was found.
-pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, force_create: bool) -> GridGraph {
+pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, force_create: bool, number_nodes: usize) -> GridGraph {
     let osm_path= Path::new(osm_path_name);
     let osm_name = osm_path.file_name().unwrap();
     let mut graph_file_name = osm_name.to_str().unwrap().to_owned();
     graph_file_name.push_str(".");
-    graph_file_name.push_str(&*grid_graph::get_maximum_number_of_nodes().to_string());
-    graph_file_name.push_str(".bin");
+    graph_file_name.push_str(&*number_nodes.to_string());
+    graph_file_name.push_str(".bin_new");
     println!("force create? {}, filename {}", force_create, graph_file_name);
     let path = osm_path.with_file_name(graph_file_name);
     if !force_create {
@@ -41,7 +41,7 @@ pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, 
     let polygon_test = PointInPolygonTest::new(polygons);
 
     // assign new value to the GRAPH reference
-    let gra = GridGraph::new(&polygon_test);
+    let gra = GridGraph::new(&polygon_test, number_nodes);
     save_graph_to_disk(&path, &gra);
     println!("Saved graph to disk at {}", path.to_str().unwrap());
     return gra;

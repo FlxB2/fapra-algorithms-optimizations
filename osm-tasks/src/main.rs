@@ -44,9 +44,9 @@ struct Response {
 }
 
 #[openapi]
-#[post("/buildGraph")]
-fn build_graph(navigator_use_case: State<NavigatorUseCase>) {
-    navigator_use_case.build_graph();
+#[post("/buildGraph?<num_nodes>")]
+fn build_graph(num_nodes: usize, navigator_use_case: State<NavigatorUseCase>) {
+    navigator_use_case.build_graph(num_nodes);
 }
 
 #[openapi]

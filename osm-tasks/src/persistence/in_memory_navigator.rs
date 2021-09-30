@@ -25,7 +25,7 @@ impl Navigator for InMemoryGraph {
     fn new() -> InMemoryGraph {
         let config = Config::global();
         if config.build_graph_on_startup() {
-            let graph = read_or_create_graph(config.coastlines_file(), false);
+            let graph = read_or_create_graph(config.coastlines_file(), false, config.number_of_nodes());
             let dijkstra = Some(Dijkstra::new(graph.adjacency_array(), graph.nodes.len() as u32 - 1));
             let nearest_neighbor = Some(NearestNeighbor::new(&graph.nodes));
             InMemoryGraph {
@@ -42,10 +42,10 @@ impl Navigator for InMemoryGraph {
         }
     }
 
-    fn build_graph(&mut self) {
+    fn build_graph(&mut self, number_nodes: usize) {
         let config = Config::global();
-        self.graph = read_or_create_graph(config.coastlines_file(), config.force_rebuild_graph());
-        self.dijkstra = Some(Dijkstra::new(self.graph.adjacency_array(), self.get_number_nodes() - 1));
+        self.graph = read_or_create_graph(config.coastlines_file(), false, number_nodes);
+        self.dijkstra = Some(Dijkstra::new(self.graph.adjacency_array(), (number_nodes - 1) as u32));
         self.nearest_neighbor = Some(NearestNeighbor::new(&self.graph.nodes));
     }
 
@@ -78,7 +78,7 @@ impl Navigator for InMemoryGraph {
             let route: Vec<u32> = route_and_distance.0;
             let distance = route_and_distance.1;
             let nodes_route: Vec<Node> = route.into_iter().map(|i| { self.graph.nodes[i as usize] }).collect();
-            let time: u128 = start_time.elapsed().as_millis();
+            let time: u128 = start_time.elapsed().as_nanos();
             println!("Dikstra calculated route from {} to {} with distance {} in {} ns, or {} ms", start_node, end_node, distance, start_time.elapsed().as_nanos(), start_time.elapsed().as_millis());
             return Some(BenchmarkResult {
                 start_node: self.graph.nodes[start_node as usize],
@@ -101,7 +101,7 @@ impl Navigator for InMemoryGraph {
             let route: Vec<u32> = route_and_distance.0;
             let distance = route_and_distance.1;
             let nodes_route: Vec<Node> = route.into_iter().map(|i| { self.graph.nodes[i as usize] }).collect();
-            let time: u128 = start_time.elapsed().as_millis();
+            let time: u128 = start_time.elapsed().as_nanos();
             println!("A Star calculated route from {} to {} with distance {} and number_nodes {} in {} ns, or {} ms",
                      start_node, end_node, distance, nodes_route.len(), start_time.elapsed().as_nanos(), start_time.elapsed().as_millis());
             return Some(BenchmarkResult {
@@ -125,7 +125,7 @@ impl Navigator for InMemoryGraph {
             let route: Vec<u32> = route_and_distance.0;
             let distance = route_and_distance.1;
             let nodes_route: Vec<Node> = route.into_iter().map(|i| { self.graph.nodes[i as usize] }).collect();
-            let time: u128 = start_time.elapsed().as_millis();
+            let time: u128 = start_time.elapsed().as_nanos();
             println!("Bd Dijkstra calculated route from {} to {} with distance {} and number_nodes {} in {} ns, or {} ms",
                      start_node, end_node, distance, nodes_route.len(), start_time.elapsed().as_nanos(), start_time.elapsed().as_millis());
             return Some(BenchmarkResult {
