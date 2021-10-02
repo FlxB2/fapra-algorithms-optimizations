@@ -21,7 +21,6 @@ pub(crate) struct BdDijkstra<'a> {
 impl<'a> BdDijkstra<'a> {
     pub fn new(graph: &GridGraph, source_node: u32) -> BdDijkstra {
         let number_of_nodes = graph.nodes.len() as usize;
-        // Todo: Ist es sinnvoll den heap mit der Anzahl der Knoten zu initialisieren?
         let forward_heap = BinaryHeap::with_capacity(number_of_nodes);
         let backward_heap = BinaryHeap::with_capacity(number_of_nodes);
         let forward_distances = vec![u32::MAX; number_of_nodes];

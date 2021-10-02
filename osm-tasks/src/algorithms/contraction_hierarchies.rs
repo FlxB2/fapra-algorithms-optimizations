@@ -1,16 +1,29 @@
 use std::collections::{BinaryHeap, HashMap};
 use crate::model::adjacency_array::AdjacencyArray;
-use crate::model::grid_graph::{GridGraph, Edge};
+use crate::model::grid_graph::{GridGraph, Edge, Node};
 use crate::model::heap_item::HeapItem;
 use crate::algorithms::dijkstra::Dijkstra;
-use crate::algorithms::dijkstra_one_to_many::DijkstraToMany;
+use crate::algorithms::witness_search::WitnessSearch;
+use rand_xorshift::XorShiftRng;
 use std::io::BufWriter;
 use std::fs::File;
 use std::path::Path;
+use rand::Rng;
+use rand::distributions::Uniform;
+use rand::prelude::SliceRandom;
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Clone)]
+struct CNMetadata {
+    graph: GridGraph,
+    shortcuts: Vec<Shortcut>,
+    is_shortcut: HashMap<String, bool>
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 struct Shortcut {
     replaced_edges: Vec<u32>,
-    edge: Edge
+    edge: Edge,
 }
 
 pub(crate) struct ContractionHierarchies {
@@ -29,14 +42,14 @@ pub(crate) struct ContractionHierarchies {
     meeting_node: u32,
     shortcuts: Vec<Shortcut>,
     contracted_nodes: HashMap<u32, bool>,
-    shortcuts_start_indexes: HashMap<usize, usize>,
-    removed_edges: HashMap<u32, bool>
+    // format to create unique key s.edge.source.to_string() + &*s.edge.target.to_string()
+    is_shortcut: HashMap<String, bool>,
+    removed_edges: HashMap<u32, bool>,
 }
 
-impl ContractionHierarchies  {
+impl ContractionHierarchies {
     pub fn new(graph: GridGraph, source_node: u32) -> ContractionHierarchies {
         let number_of_nodes = graph.nodes.len() as usize;
-        // Todo: Ist es sinnvoll den heap mit der Anzahl der Knoten zu initialisieren?
         let forward_heap = BinaryHeap::with_capacity(number_of_nodes);
         let backward_heap = BinaryHeap::with_capacity(number_of_nodes);
         let forward_distances = vec![u32::MAX; number_of_nodes];
@@ -51,7 +64,6 @@ impl ContractionHierarchies  {
                 number_nodes: 0,
                 edges: vec![],
                 nodes: vec![],
-                //removed_edges: Default::default()
             },
             forward_heap,
             backward_heap,
@@ -66,104 +78,150 @@ impl ContractionHierarchies  {
             meeting_node: u32::MAX,
             shortcuts: vec![],
             contracted_nodes: HashMap::new(),
-            shortcuts_start_indexes: HashMap::new(),
-            removed_edges: HashMap::new()
+            is_shortcut: HashMap::new(),
+            removed_edges: HashMap::new(),
         };
     }
 
     pub fn preprocessing(&mut self) {
         let mut rank = 1;
+        let number_edges_before = self.graph_ref.edges.len();
+        let mut collected_nodes = 0.0;
         self.modified_graph = (self.graph_ref).clone();
-        let mut rank_map: Vec<Vec<u32>> = vec![vec![]; 15];
-        println!("starting preprocessing {}, {}", self.modified_graph.number_nodes, self.graph_ref.number_nodes);
-        // create map of ranks
-        for i in 0..(self.graph_ref.number_nodes as u32) {
-            // contraction order heuristic: out-degree
-            let curr_rank = calc_number_edges(i, &self.graph_ref) as usize;
-            rank_map[curr_rank].push(i);
-        }
+        let mut removed_nodes: HashMap<u32, bool> = HashMap::new();
+        let mut i_set_size = ((1.0 / 100.0) * self.modified_graph.number_nodes as f64) as usize;
 
-        for i in 0..rank_map.len() {
-            println!("i {} len {}", i, rank_map[i].len());
-        }
+        // we aim to contract 90% of nodes
+        while collected_nodes < ((9.0 / 10.0) * self.graph_ref.number_nodes as f64) {
+            let mut modified_adj_array = self.modified_graph.adjacency_array();
 
-        while rank < rank_map.len() {
-            // select nodes C
-            let c: &Vec<u32> = &rank_map[rank];
-            println!("calculating rank {}, nodes to calc {}, number shortcuts added {}", rank, c.len(), self.shortcuts.len());
+            // create independent set by picking nodes randomly
+            let mut disallowed_nodes: HashMap<u32, bool> = HashMap::new();
+            let mut has_enough_nodes = false;
+            let mut independent_set = Vec::with_capacity(i_set_size as usize);
+            let range = Uniform::from(0..(self.modified_graph.nodes.len() as u32));
 
-            // ink rank
-            rank += 1;
+            while !has_enough_nodes {
+                let choices: Vec<u32> = rand::thread_rng().sample_iter(&range).take(2 * i_set_size as usize).collect();
+                let mut cnt: i32 = -1;
+                'node: for node in choices {
+                    cnt += 1;
+                    if removed_nodes.contains_key(&node) {
+                        if cnt == i_set_size as i32 {
+                            break 'node;
+                        }
+                        continue 'node;
+                    }
+                    let neighbors_distances = modified_adj_array.get_neighbors_of_node_and_distances(node);
+                    'neighbor: for neighbor in (0..neighbors_distances.len()).step_by(2) {
+                        if disallowed_nodes.contains_key(&(neighbor as u32)) {
+                            continue 'node;
+                        }
+                    }
+                    // found an independent node!
+                    independent_set.push(node);
+                    disallowed_nodes.insert(node, true);
+                    //println!("set size {}, i_set_size {}", independent_set.len(), i_set_size);
 
-            //let mut modified_adj_array = self.modified_graph.adjacency_array_consider_removed_nodes(&self.removed_edges);
+                    // stopping condition, we reached i_set_size nodes
+                    if independent_set.len() == i_set_size as usize {
+                        has_enough_nodes = true;
+                        break 'node;
+                    }
+                }
+            }
+            println!("found independent set w/ size {}", i_set_size);
 
-            // create shortcut set S and add them to new_e
-            for i in c {
-                //self.find_shortcuts(*i, &modified_adj_array);
-                // remove adjacent edges of i
-                self.modified_graph.remove_edges_of_node(*i);
-                self.removed_edges.insert(*i, true);
+            let mut rank_map: Vec<Vec<u32>> = vec![vec![]; 15];
+
+            // create map of ranks and remove nodes from graph
+            for i in 0..independent_set.len() {
+                collected_nodes += 1.0;
+
+                // contraction order heuristic: out-degree
+                let curr_rank = calc_number_edges(independent_set[i], &self.graph_ref) as usize;
+                rank_map[curr_rank].push(independent_set[i]);
+            }
+            println!("collected nodes {}", collected_nodes);
+
+            // TODO this might be shit, way too many duplicate paths? okay maybe not
+            for i in 0..rank_map.len() - 1 {
+                // we only create shortcuts between lower to higher ranks
+                let destinations: &[u32] = &rank_map[i + 1..rank_map.len()].concat();
+                for j in 0..rank_map[i].len() {
+                    // find route from node i,j to destinations
+                    self.find_shortcuts(rank_map[i][j], destinations, &modified_adj_array, &removed_nodes);
+                }
             }
 
-            // final graph with added shortcuts
-            self.shortcuts_start_indexes.insert(rank, self.modified_graph.edges.len());
-            println!("new index: {}", self.modified_graph.edges.len());
-            for s in &self.shortcuts {
-                //self.modified_graph.edges.push(s.edge);
-                //self.modified_graph.offsets[s.edge.source as usize] += 1;
-
-
+            // remove nodes for sweeps after this one
+            for i in 0..independent_set.len() {
+                self.modified_graph.remove_node(independent_set[i]);
+                removed_nodes.insert(independent_set[i], true);
             }
         }
+
+        // final graph with added shortcuts
+        println!("found {} shortcuts", self.shortcuts.len());
+        println!("edges before {}, after {}", number_edges_before, self.modified_graph.edges.concat().len());
+        for s in &self.shortcuts {
+            // check for duplicates - TODO during witness search
+            let key = s.edge.source.to_string() + &*s.edge.target.to_string();
+            if !self.is_shortcut.contains_key(&*key) {
+                self.is_shortcut.insert(key, true);
+                //self.modified_graph.add_new_edge(s.edge);
+            }
+        }
+        println!("added {} shortcuts", self.shortcuts.len());
+
+        println!("finished - started copying graph");
+        let to_save = CNMetadata {
+            graph: self.modified_graph.clone(),
+            shortcuts: self.shortcuts.clone(),
+            is_shortcut: self.is_shortcut.clone()
+        };
 
         // save graph to disc
         let mut f = BufWriter::new(File::create(
             Path::new("/home/gin/Documents/UNI/master/FachpraktikumAlgorithms/osm-tasks-fachpraktikum-algorithms-ss2021/osm-tasks/finally.bin")).unwrap());
-        if let Err(e) = bincode::serialize_into(&mut f, &self.modified_graph) {
-            println!("Could not save graph to disk: {:?}", e);
+        if let Err(e) = bincode::serialize_into(&mut f, &to_save) {
+            println!("Could not save cn graph to disk: {:?}", e);
         }
     }
 
-    fn find_shortcuts(&mut self, node: u32, adj_array: &AdjacencyArray) {
-        let mut dijkstra = DijkstraToMany::new(adj_array, node);
+    fn find_shortcuts(&mut self, node: u32, dest: &[u32], adj_array: &AdjacencyArray, removed_nodes: &HashMap<u32, bool>) {
+        let mut dijkstra = WitnessSearch::new(adj_array, node, removed_nodes);
         self.contracted_nodes.insert(node, true);
 
-        // get neighbors
-        let neighbors_and_distances = adj_array.get_neighbors_of_node_and_distances(node);
+        dijkstra.change_source_node(node);
+        // TODO check if uvw = length of route found (v contracted, u,w neighbors)
+        // TODO this ensures no suboptimal shortcuts are added (and that u is always included)
+        let dist_uvw = 0;
+        if let Some(result) = dijkstra.find_route(dest) {
+            let routes = result.0;
+            let distances = result.1;
+            let mut counter = 0;
+            for route in routes {
+                let edge = Edge {
+                    source: route[0],
+                    target: route[route.len() - 1],
+                    distance: distances[counter],
+                };
 
-        let mut neighbors = vec![];
-        for i in (0..neighbors_and_distances.len()).step_by(2) {
-            // ignore neighbors which have already been contracted
-            if !self.contracted_nodes.contains_key(&neighbors_and_distances[i]) && neighbors_and_distances[i] != u32::MAX {
-                neighbors.push(neighbors_and_distances[i]);
-            }
-        }
-        if neighbors.len() <= 1 {
-            return;
-        }
+                // ignore duplicates - key is unique id which will not change
+                let key = edge.source.to_string() + &*edge.target.to_string();
+                if !self.is_shortcut.contains_key(&*key) {
+                    self.is_shortcut.insert(key, true);
+                    self.modified_graph.add_new_edge(edge);
 
-        for j in 0..neighbors.len() {
-            let targets: Vec<u32> = neighbors.iter().filter(|&&n| n != neighbors[j]).cloned().collect::<Vec<u32>>();
-            dijkstra.change_source_node(neighbors[j]);
-            if let Some(result) = dijkstra.find_route(targets) {
-                let routes = result.0;
-                let distances = result.1;
-                let mut counter = 0;
-                for route in routes {
-                    // we are only interested in routes containing the node
-                    if route.contains(&node) {
-                        let edge = Edge {
-                            source: route[0], target: route[route.len()-1],
-                            distance: distances[counter]
-                        };
-                        // TODO consider addding shortcut in both directions
-                        self.shortcuts.push( Shortcut {
-                            replaced_edges: route,
-                            edge
-                        });
-                    }
-                    counter += 1;
+                    // TODO consider addding shortcut in both directions
+                    self.shortcuts.push(Shortcut {
+                        replaced_edges: route,
+                        edge,
+                    });
                 }
+
+                counter += 1;
             }
         }
     }
@@ -243,7 +301,7 @@ impl ContractionHierarchies  {
                     self.forward_heap.push(HeapItem {
                         distance: score,
                         node_id: neighbor,
-                        previous_node: curr.node_id
+                        previous_node: curr.node_id,
                     });
                     self.update_best_path_forward(neighbor as usize, score);
                 }
@@ -270,7 +328,7 @@ impl ContractionHierarchies  {
                     self.backward_heap.push(HeapItem {
                         distance: score,
                         node_id: neighbor,
-                        previous_node: curr.node_id
+                        previous_node: curr.node_id,
                     });
                     self.update_best_path_backward(neighbor as usize, score);
                 }

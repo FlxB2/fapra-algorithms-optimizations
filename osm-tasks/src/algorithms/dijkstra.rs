@@ -50,7 +50,6 @@ impl Dijkstra {
     pub fn new(graph: AdjacencyArray, source_node: u32) -> Dijkstra {
         //println!("New dijkstra instance with source node {}", source_node);
         let number_of_nodes = graph.get_nodes_count() as usize;
-        // Todo: Ist es sinnvoll den heap mit der Anzahl der Knoten zu initialisieren?
         let mut heap = BinaryHeap::with_capacity(number_of_nodes);
         let distances = vec![u32::MAX; number_of_nodes];
         let previous_nodes = vec![u32::MAX; number_of_nodes];

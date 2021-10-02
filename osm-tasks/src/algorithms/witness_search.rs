@@ -1,21 +1,23 @@
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap};
 use crate::model::adjacency_array::AdjacencyArray;
 use crate::model::heap_item::HeapItem;
+use crate::model::grid_graph::GridGraph;
 
-pub(crate) struct DijkstraToMany<'a> {
+pub(crate) struct WitnessSearch<'a> {
     graph_ref: &'a AdjacencyArray,
     heap: BinaryHeap<HeapItem>,
     distances: Vec<u32>,
     previous_nodes: Vec<u32>,
     source_node: u32,
     amount_nodes_popped: u32,
+    removed_nodes: &'a HashMap<u32,bool>,
 }
 
-impl<'a> DijkstraToMany<'a> {
-    pub fn new(graph: &AdjacencyArray, source_node: u32) -> DijkstraToMany {
+// basically one to many dijkstra
+impl<'a> WitnessSearch<'a> {
+    pub fn new(graph: &'a AdjacencyArray, source_node: u32, removed_nodes: &'a HashMap<u32,bool>) -> WitnessSearch<'a> {
         //println!("New dijkstra instance with source node {}", source_node);
         let number_of_nodes = graph.get_nodes_count() as usize;
-        // Todo: Ist es sinnvoll den heap mit der Anzahl der Knoten zu initialisieren?
         let mut heap = BinaryHeap::with_capacity(number_of_nodes);
         let distances = vec![u32::MAX; number_of_nodes];
         let previous_nodes = vec![u32::MAX; number_of_nodes];
@@ -24,7 +26,7 @@ impl<'a> DijkstraToMany<'a> {
             distance: 0,
             previous_node: source_node,
         });
-        return DijkstraToMany { graph_ref: graph, heap, distances, previous_nodes, source_node, amount_nodes_popped: 0 };
+        return WitnessSearch { graph_ref: graph, removed_nodes, heap, distances, previous_nodes, source_node, amount_nodes_popped: 0 };
     }
 
     pub fn change_source_node(&mut self, source_node: u32) {
@@ -43,7 +45,7 @@ impl<'a> DijkstraToMany<'a> {
         self.previous_nodes.fill(u32::MAX);
     }
 
-    pub fn find_route(&mut self, destination_nodes: Vec<u32>) -> Option<(Vec<Vec<u32>>, Vec<u32>, u32)> {
+    pub fn find_route(&mut self, destination_nodes: &[u32]) -> Option<(Vec<Vec<u32>>, Vec<u32>, u32)> {
         /* disable caching
         if self.distances[destination_node as usize] != u32::MAX {
             return Some((self.traverse_route(&destination_node), self.distances[destination_node as usize]));
@@ -56,7 +58,7 @@ impl<'a> DijkstraToMany<'a> {
         }
     }
 
-    fn dijkstra(&mut self, destination_nodes: Vec<u32>) -> (Vec<Vec<u32>>, Vec<u32>) {
+    fn dijkstra(&mut self, destination_nodes: &[u32]) -> (Vec<Vec<u32>>, Vec<u32>) {
         let mut results: Vec<Vec<u32>> = vec![];
         let mut distances: Vec<u32> = vec![];
         loop {
@@ -72,8 +74,7 @@ impl<'a> DijkstraToMany<'a> {
                     let next_node = neighbors_and_distances[i];
                     let next_node_distance = neighbors_and_distances[i + 1];
 
-                    // disabled edges contain next_node = u32::MAX and distance u32::MAX
-                    if next_node == u32::MAX || next_node_distance == u32::MAX {
+                    if self.removed_nodes.contains_key(&next_node) || next_node == u32::MAX || next_node_distance == u32::MAX {
                         continue;
                     }
 
@@ -95,7 +96,7 @@ impl<'a> DijkstraToMany<'a> {
                     }
                 }
             } else {
-                println!("Heap is empty but dest node not found. src {}", self.source_node);
+                //println!("Heap is empty but dest node not found. src {}", self.source_node);
                 return (vec![], vec![]);
             }
         }

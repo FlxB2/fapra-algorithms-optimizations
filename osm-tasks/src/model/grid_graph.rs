@@ -34,6 +34,7 @@ impl Eq for Edge {}
 
 #[derive(Clone, Copy, Serialize, Deserialize, JsonSchema, Debug)]
 pub struct Node {
+    pub removed: bool,
     pub lat: f64,
     pub lon: f64,
 }
@@ -76,7 +77,8 @@ impl GridGraph {
         return AdjacencyArray::new(offsets, edges_and_distances);
     }
 
-    pub fn remove_edges_of_node(&mut self, v: u32) {
+    pub fn remove_node(&mut self, v: u32) {
+        self.nodes[v as usize].removed = true;
         self.edges[v as usize] = vec![];
     }
 
@@ -104,7 +106,7 @@ impl GridGraph {
         let mut virtual_nodes_to_index: Vec<Option<u32>> = vec![None; maximum_number_of_nodes];
         let mut number_virtual_nodes: usize = 0;
         let mut number_graph_nodes: usize = 0;
-        let mut nodes = vec![Node { lat: 0.0, lon: 0.0 }; maximum_number_of_nodes];
+        let mut nodes = vec![Node { removed: false, lat: 0.0, lon: 0.0 }; maximum_number_of_nodes];
         let mut edges: Vec<Vec<Edge>> = vec![Vec::with_capacity(8); maximum_number_of_nodes];
 
         // algorithm taken from here https://www.cmu.edu/biolphys/deserno/pdf/sphere_equi.pdf
@@ -139,7 +141,7 @@ impl GridGraph {
                 if polygon_test.check_intersection(*&(lon, lat)) {
                     (n, None)
                 } else {
-                    let source_node = Node { lat, lon };
+                    let source_node = Node { removed: false, lat, lon };
                     (n, Some(source_node))
                 }
             }).collect();

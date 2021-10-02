@@ -61,10 +61,12 @@ fn test(navigator_use_case: State<NavigatorUseCase>) -> Json<u32> {
 fn route(lat_start: f64, lon_start: f64, lat_end: f64, lon_end: f64, navigator_use_case: State<NavigatorUseCase>) -> Option<Json<Option<u32>>> {
     let route_request = RouteRequest {
         start: Node {
+            removed: false,
             lon: lon_start,
             lat: lat_start
         },
         end: Node {
+            removed: false,
             lon: lon_end,
             lat: lat_end
         }

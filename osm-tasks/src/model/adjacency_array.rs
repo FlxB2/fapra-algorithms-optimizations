@@ -12,12 +12,15 @@ impl AdjacencyArray {
     pub fn edges_and_distances_offsets(&self) -> &Vec<u32>{
         &self.edges_and_distances_offsets
     }
+
     pub fn edges_and_distances(&self) -> &Vec<u32> {
         &self.edges_and_distances
     }
+
     pub(crate) fn get_neighbors_of_node_and_distances(&self, node: u32) -> &[u32] {
         &self.edges_and_distances[(self.edges_and_distances_offsets[node as usize] as usize)..(self.edges_and_distances_offsets[node as usize + 1] as usize)]
     }
+
     pub(crate) fn get_nodes_count(&self) -> u32 {
         self.edges_and_distances_offsets.len() as u32 - 1
     }
