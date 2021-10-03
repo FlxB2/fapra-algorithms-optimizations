@@ -26,10 +26,10 @@ pub(crate) struct CNGraphCreator<'a> {
     amount_nodes_popped_backward: usize,
     mu: u32,
     meeting_node: u32,
-    shortcuts: Vec<Shortcut>,
     contracted_nodes: HashMap<u32, bool>,
     // format to create unique key s.edge.source.to_string() + &*s.edge.target.to_string()
-    is_shortcut: HashMap<String, bool>,
+    // value is index of shortcut in self.shortcut - enables faster unwrapping
+    get_shortcut: HashMap<String, Shortcut>,
     removed_edges: HashMap<u32, bool>,
 }
 
@@ -61,9 +61,8 @@ impl<'a> CNGraphCreator<'a> {
             amount_nodes_popped_backward: 0,
             mu: u32::MAX,
             meeting_node: u32::MAX,
-            shortcuts: vec![],
             contracted_nodes: HashMap::new(),
-            is_shortcut: HashMap::new(),
+            get_shortcut: HashMap::new(),
             removed_edges: HashMap::new(),
         };
     }
@@ -147,20 +146,19 @@ impl<'a> CNGraphCreator<'a> {
         }
 
         // final graph with added shortcuts
-        println!("found {} shortcuts", self.shortcuts.len());
+        println!("found {} shortcuts", self.get_shortcut.keys().len());
         let mut final_graph = (*self.graph_ref).clone();
-        for s in &self.shortcuts {
+        for s in self.get_shortcut.values() {
             // add shortcuts to initial graph
             final_graph.add_new_edge(s.edge);
         }
         println!("edges before {}, after {}", number_edges_before, self.graph_ref.edges.concat().len());
-        println!("added {} shortcuts", self.shortcuts.len());
+        println!("added {} shortcuts", self.get_shortcut.keys().len());
 
         println!("finished building cn metadata - started copying graph");
         return CNMetadata {
             graph: final_graph,
-            shortcuts: self.shortcuts.clone(),
-            is_shortcut: self.is_shortcut.clone()
+            get_shortcut: self.get_shortcut.clone()
         };
     }
 
@@ -169,7 +167,7 @@ impl<'a> CNGraphCreator<'a> {
         self.contracted_nodes.insert(node, true);
 
         dijkstra.change_source_node(node);
-        // TODO check if uvw = length of route found (v contracted, u,w neighbors)
+        // TODO check if uvw = length of route found (v contracted, u,w neighbors) [STALL ON DEMAND]
         // TODO this ensures no suboptimal shortcuts are added (and that u is always included)
         let dist_uvw = 0;
         if let Some(result) = dijkstra.find_route(dest) {
@@ -185,15 +183,14 @@ impl<'a> CNGraphCreator<'a> {
 
                 // ignore duplicates - key is unique id which will not change
                 let key = edge.source.to_string() + "_" + &*edge.target.to_string();
-                if !self.is_shortcut.contains_key(&*key) {
-                    self.is_shortcut.insert(key, true);
-                    self.modified_graph.add_new_edge(edge);
-
+                if !self.get_shortcut.contains_key(&*key) {
                     // TODO consider addding shortcut in both directions
-                    self.shortcuts.push(Shortcut {
+                    // save shortcut for quicker unwrapping later on + fast query if edge is a shortcut
+                    self.get_shortcut.insert(key, Shortcut {
                         replaced_edges: route,
                         edge,
                     });
+                    self.modified_graph.add_new_edge(edge);
                 }
 
                 counter += 1;

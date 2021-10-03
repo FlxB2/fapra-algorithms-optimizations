@@ -30,8 +30,7 @@ impl Navigator for InMemoryGraph {
 
         let cn_metadata = CNMetadata {
             graph: GridGraph::default(),
-            shortcuts: vec![],
-            is_shortcut: HashMap::new(),
+            get_shortcut: HashMap::new(),
         };
 
         if config.build_graph_on_startup() {

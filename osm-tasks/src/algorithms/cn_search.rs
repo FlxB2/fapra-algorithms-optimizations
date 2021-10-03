@@ -4,6 +4,7 @@ use crate::model::grid_graph::GridGraph;
 use crate::model::cn_model::CNMetadata;
 use termion::color;
 use crate::model::priority_heap_item::PriorityHeapItem;
+use crate::model::heap_item::HeapItem;
 
 pub(crate) struct CNBdDijkstra<'a> {
     meta: &'a CNMetadata,
@@ -15,6 +16,7 @@ pub(crate) struct CNBdDijkstra<'a> {
     forward_previous_nodes: Vec<u32>,
     backward_previous_nodes: Vec<u32>,
     source_node: u32,
+    destination_node: u32,
     amount_nodes_popped_forward: usize,
     amount_nodes_popped_backward: usize,
     mu: u32,
@@ -40,16 +42,18 @@ impl<'a> CNBdDijkstra<'a> {
             backward_distances,
             forward_previous_nodes,
             backward_previous_nodes,
+            destination_node: 0,
             source_node,
             amount_nodes_popped_forward: 0,
             amount_nodes_popped_backward: 0,
             mu: u32::MAX,
-            meeting_node: u32::MAX
+            meeting_node: u32::MAX,
         };
     }
 
     pub fn find_route(&mut self, destination_node: u32) -> Option<(Vec<u32>, u32, u32)> {
         let meeting_node = self.bd_dijkstra(self.source_node, destination_node);
+        self.destination_node = destination_node;
 
         let mut route = vec![];
         let mut current = meeting_node;
@@ -66,12 +70,34 @@ impl<'a> CNBdDijkstra<'a> {
         }
         route.push(destination_node);
 
+        // unwrap shortcuts to real path - current route still contains shortcuts
+        //let complete_route = self.unwrap_shortcuts(&route);
+
         Some((route,
               self.forward_distances[meeting_node as usize] + self.backward_distances[meeting_node as usize],
               (self.amount_nodes_popped_forward + self.amount_nodes_popped_backward) as u32))
     }
 
-    fn bd_dijkstra(&mut self, source_node:u32, destination_node: u32) -> u32 {
+    fn unwrap_shortcuts(&self, route: &Vec<u32>) -> Vec<u32> {
+        let mut result: Vec<u32> = vec![];
+
+        for i in 0..route.len() {
+            let source = route[i];
+            if i + 1 < route.len() - 1 {
+                let target = route[i + 1];
+                let key = source.to_string() + "_" + &*target.to_string();
+                if let Some((_key, shortcut)) = self.meta.get_shortcut.get_key_value(&key) {
+                    // found shortcut, unwrap
+                    result.append(&mut self.unwrap_shortcuts(&shortcut.replaced_edges));
+                } else {
+                    result.push(source);
+                }
+            }
+        }
+        return result;
+    }
+
+    fn bd_dijkstra(&mut self, source_node: u32, destination_node: u32) -> u32 {
         let adj_array = self.graph_ref.adjacency_array();
         self.meeting_node = u32::MAX;
         self.mu = u32::MAX;
@@ -79,13 +105,13 @@ impl<'a> CNBdDijkstra<'a> {
         self.backward_heap.push(PriorityHeapItem {
             node_id: destination_node,
             distance: 0,
-            priority: 1,
+            priority: 0,
             previous_node: destination_node,
         });
         self.forward_heap.push(PriorityHeapItem {
             node_id: source_node,
             distance: 0,
-            priority: 1,
+            priority: 0,
             previous_node: source_node,
         });
         self.forward_distances[source_node as usize] = 0;
@@ -116,14 +142,15 @@ impl<'a> CNBdDijkstra<'a> {
                 let neighbor = neighbors_and_distances[i];
                 let neighbor_distance = neighbors_and_distances[i + 1];
 
-                let mut priority = 1;
-
-                let key = curr.node_id.to_string() + "_" + &*neighbor.to_string();
-                if self.meta.is_shortcut.contains_key(&*key) {
-                    priority = 0;
-                }
-
+                let mut heuristic = 0;
                 let score = curr.distance + neighbor_distance;
+                let mut priority = score as u64;
+
+                /*
+                let key = curr.node_id.to_string() + "_" + &*neighbor.to_string();
+                if self.meta.get_shortcut.contains_key(&*key) {
+                    //priority -= 10000;
+                }*/
 
                 if self.forward_distances[neighbor as usize] == u32::MAX || self.forward_distances[neighbor as usize] > score {
                     // we did not encounter this node before
@@ -131,11 +158,11 @@ impl<'a> CNBdDijkstra<'a> {
                     self.forward_distances[neighbor as usize] = score;
                     self.forward_heap.push(PriorityHeapItem {
                         distance: score,
-                        priority,
                         node_id: neighbor,
-                        previous_node: curr.node_id
+                        priority,
+                        previous_node: curr.node_id,
                     });
-                    self.update_best_path_forward(neighbor as usize, score);
+                    self.update_best_path_forward(neighbor as usize, score, heuristic);
                 }
             }
         }
@@ -151,14 +178,15 @@ impl<'a> CNBdDijkstra<'a> {
                 let neighbor = neighbors_and_distances[i];
                 let neighbor_distance = neighbors_and_distances[i + 1];
 
-                let mut priority = 1;
-
-                let key = curr.node_id.to_string() + "_" + &*neighbor.to_string();
-                if self.meta.is_shortcut.contains_key(&*key) {
-                    priority = 0;
-                }
-
+                let mut heuristic = 0;
                 let score = curr.distance + neighbor_distance;
+                let mut priority = score as u64;
+
+                /*
+                let key = curr.node_id.to_string() + "_" + &*neighbor.to_string();
+                if self.meta.get_shortcut.contains_key(&*key) {
+                    //priority -= 10000;
+                }*/
 
                 if self.backward_distances[neighbor as usize] == u32::MAX || self.backward_distances[neighbor as usize] > score {
                     // we did not encounter this node before
@@ -166,17 +194,17 @@ impl<'a> CNBdDijkstra<'a> {
                     self.backward_distances[neighbor as usize] = score;
                     self.backward_heap.push(PriorityHeapItem {
                         distance: score,
-                        priority,
                         node_id: neighbor,
-                        previous_node: curr.node_id
+                        priority,
+                        previous_node: curr.node_id,
                     });
-                    self.update_best_path_backward(neighbor as usize, score);
+                    self.update_best_path_backward(neighbor as usize, score, heuristic);
                 }
             }
         }
     }
 
-    fn update_best_path_forward(&mut self, neighbor: usize, score: u32) -> bool {
+    fn update_best_path_forward(&mut self, neighbor: usize, score: u32, heuristic: u32) -> bool {
         if self.backward_previous_nodes[neighbor as usize] != u32::MAX {
             // backward search already found this node
             let new_mu = self.backward_distances[neighbor as usize] + score;
@@ -189,7 +217,7 @@ impl<'a> CNBdDijkstra<'a> {
         false
     }
 
-    fn update_best_path_backward(&mut self, neighbor: usize, score: u32) -> bool {
+    fn update_best_path_backward(&mut self, neighbor: usize, score: u32, heuristic: u32) -> bool {
         if self.forward_previous_nodes[neighbor as usize] != u32::MAX {
             // backward search already found this node
             let new_mu = self.forward_distances[neighbor as usize] + score;

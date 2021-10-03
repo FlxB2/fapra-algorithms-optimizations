@@ -5,8 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone)]
 pub struct CNMetadata {
     pub(crate) graph: GridGraph,
-    pub(crate) shortcuts: Vec<Shortcut>,
-    pub(crate) is_shortcut: HashMap<String, bool>
+    pub(crate) get_shortcut: HashMap<String, Shortcut>
 }
 
 #[derive(Serialize, Deserialize, Clone)]
