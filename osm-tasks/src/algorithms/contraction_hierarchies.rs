@@ -85,7 +85,7 @@ impl ContractionHierarchies {
 
     pub fn preprocessing(&mut self) {
         let mut rank = 1;
-        let number_edges_before = self.graph_ref.edges.len();
+        let number_edges_before = self.graph_ref.edges.concat().len();
         let mut collected_nodes = 0.0;
         self.modified_graph = (self.graph_ref).clone();
         let mut removed_nodes: HashMap<u32, bool> = HashMap::new();
@@ -163,20 +163,16 @@ impl ContractionHierarchies {
 
         // final graph with added shortcuts
         println!("found {} shortcuts", self.shortcuts.len());
-        println!("edges before {}, after {}", number_edges_before, self.modified_graph.edges.concat().len());
         for s in &self.shortcuts {
-            // check for duplicates - TODO during witness search
-            let key = s.edge.source.to_string() + &*s.edge.target.to_string();
-            if !self.is_shortcut.contains_key(&*key) {
-                self.is_shortcut.insert(key, true);
-                //self.modified_graph.add_new_edge(s.edge);
-            }
+            // add shortcuts to initial graph
+            self.graph_ref.add_new_edge(s.edge);
         }
+        println!("edges before {}, after {}", number_edges_before, self.graph_ref.edges.concat().len());
         println!("added {} shortcuts", self.shortcuts.len());
 
         println!("finished - started copying graph");
         let to_save = CNMetadata {
-            graph: self.modified_graph.clone(),
+            graph: self.graph_ref.clone(),
             shortcuts: self.shortcuts.clone(),
             is_shortcut: self.is_shortcut.clone()
         };
@@ -187,6 +183,10 @@ impl ContractionHierarchies {
         if let Err(e) = bincode::serialize_into(&mut f, &to_save) {
             println!("Could not save cn graph to disk: {:?}", e);
         }
+    }
+
+    fn load_graph_from_memory(number_nodes: i64) {
+
     }
 
     fn find_shortcuts(&mut self, node: u32, dest: &[u32], adj_array: &AdjacencyArray, removed_nodes: &HashMap<u32, bool>) {

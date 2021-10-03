@@ -79,11 +79,13 @@ impl GridGraph {
 
     pub fn remove_node(&mut self, v: u32) {
         self.nodes[v as usize].removed = true;
+        self.number_edges -= self.edges[v as usize].len() as i64;
         self.edges[v as usize] = vec![];
     }
 
     pub fn add_new_edge(&mut self, edge: Edge) {
-        self.edges[edge.source as usize].push(edge)
+        self.edges[edge.source as usize].push(edge);
+        self.number_edges += 1;
     }
 
     // distance in km, should be sufficient
