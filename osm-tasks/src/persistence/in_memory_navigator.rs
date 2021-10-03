@@ -15,6 +15,7 @@ use crate::algorithms::bd_dijkstra::BdDijkstra;
 use crate::import::pbf_reader::{read_or_create_graph, read_or_create_cn_metadata};
 use crate::algorithms::cn_graph_creator::CNGraphCreator;
 use crate::model::cn_model::CNMetadata;
+use crate::algorithms::cn_search::CNBdDijkstra;
 
 pub(crate) struct InMemoryGraph {
     graph: GridGraph,
@@ -59,7 +60,7 @@ impl Navigator for InMemoryGraph {
         self.dijkstra = Some(Dijkstra::new(self.graph.adjacency_array(), (number_nodes - 1) as u32));
         self.nearest_neighbor = Some(NearestNeighbor::new(&self.graph.nodes));
 
-        self.cn_metadata = read_or_create_cn_metadata(config.coastlines_file(), number_nodes, &self.graph);
+        self.cn_metadata = read_or_create_cn_metadata(config.coastlines_file(), false, number_nodes, &self.graph);
     }
 
     fn calculate_route(&mut self, route_request: RouteRequest) -> Option<ShipRoute> {
@@ -155,9 +156,10 @@ impl Navigator for InMemoryGraph {
     }
 
     fn test_ch(&mut self, start_node: u32, end_node: u32, query_id: usize) -> Option<BenchmarkResult> {
-        let mut bd_dijkstra = Dijkstra::new(self.cn_metadata.graph.adjacency_array(), start_node);
+        let mut ch_bd_dijkstra = CNBdDijkstra::new(&self.cn_metadata, start_node);
+        println!("cn graph edges {} normal graph edges {}", self.cn_metadata.graph.edges.concat().len(), self.graph.edges.concat().len());
         let start_time = Instant::now();
-        if let Some(route_and_distance) = bd_dijkstra.find_route(end_node) {
+        if let Some(route_and_distance) = ch_bd_dijkstra.find_route(end_node) {
             let route: Vec<u32> = route_and_distance.0;
             let distance = route_and_distance.1;
             let nodes_route: Vec<Node> = route.into_iter().map(|i| { self.graph.nodes[i as usize] }).collect();

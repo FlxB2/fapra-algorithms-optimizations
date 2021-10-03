@@ -1,52 +1,17 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
-use std::fmt;
 use crate::model::adjacency_array::AdjacencyArray;
 use crate::model::grid_graph::GridGraph;
+use crate::model::priority_heap_item::PriorityHeapItem;
 
 pub(crate) struct AStar<'a> {
     adj_ref: AdjacencyArray,
     graph_ref: &'a GridGraph,
-    heap: BinaryHeap<HeapItem>,
+    heap: BinaryHeap<PriorityHeapItem>,
     distances: Vec<u32>,
     previous_nodes: Vec<u32>,
     source_node: u32,
     amount_nodes_popped: u32,
-}
-
-#[derive(Debug)]
-struct HeapItem {
-    node_id: u32,
-    distance: u32,
-    priority: u64,
-    previous_node: u32,
-}
-
-impl fmt::Display for HeapItem {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Customize so only `x` and `y` are denoted.
-        write!(f, "node_id: {}, distance: {}, previous_node: {}", self.node_id, self.distance, self.previous_node)
-    }
-}
-
-impl PartialEq for HeapItem {
-    fn eq(&self, other: &Self) -> bool {
-        other.priority.eq(&self.priority)
-    }
-}
-
-impl Eq for HeapItem {}
-
-impl PartialOrd for HeapItem {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(other.priority.cmp(&self.priority))
-    }
-}
-
-impl Ord for HeapItem {
-    fn cmp(&self, other: &Self) -> Ordering {
-        other.priority.cmp(&self.priority)
-    }
 }
 
 impl<'a> AStar<'a> {
@@ -56,7 +21,7 @@ impl<'a> AStar<'a> {
         let mut heap = BinaryHeap::with_capacity(number_of_nodes);
         let distances = vec![u32::MAX; number_of_nodes];
         let previous_nodes = vec![u32::MAX; number_of_nodes];
-        heap.push(HeapItem {
+        heap.push(PriorityHeapItem {
             node_id: source_node,
             distance: 0,
             priority: 0,
@@ -96,7 +61,7 @@ impl<'a> AStar<'a> {
 
                     if self.distances[next_node as usize] == u32::MAX {
                         //println!("add edge form {} to {} with dist {}", heap_element.node_id, next_node, next_node_distance);
-                        self.heap.push(HeapItem {
+                        self.heap.push(PriorityHeapItem {
                             node_id: next_node,
                             distance: (next_node_distance as u32) + heap_element.distance,
                             priority: next_node_distance + (heap_element.distance as u64) + heuristic,

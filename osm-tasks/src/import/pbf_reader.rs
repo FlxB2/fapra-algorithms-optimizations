@@ -50,7 +50,7 @@ pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, 
     return gra;
 }
 
-pub(crate) fn read_or_create_cn_metadata<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, number_nodes: usize, initial_graph: &GridGraph) -> CNMetadata {
+pub(crate) fn read_or_create_cn_metadata<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, force_recreate: bool, number_nodes: usize, initial_graph: &GridGraph) -> CNMetadata {
     let osm_path = Path::new(osm_path_name);
     let osm_name = osm_path.file_name().unwrap();
     let mut graph_file_name = osm_name.to_str().unwrap().to_owned();
@@ -59,13 +59,16 @@ pub(crate) fn read_or_create_cn_metadata<S: AsRef<OsStr> + ?Sized>(osm_path_name
     graph_file_name.push_str(".cn_meta");
 
     let path = osm_path.with_file_name(graph_file_name);
-    let disk_graph = load_cn_meta_from_disk(&path);
-    if disk_graph.is_ok() {
-        let gra = disk_graph.unwrap();
-        println!("Loaded cn metadata from disk \"{}\". Shortcut count: {}", path.to_str().unwrap(), gra.shortcuts.len());
-        return gra;
-    } else {
-        println!("cn metadata not ok");
+
+    if !force_recreate {
+        let disk_graph = load_cn_meta_from_disk(&path);
+        if disk_graph.is_ok() {
+            let gra = disk_graph.unwrap();
+            println!("Loaded cn metadata from disk \"{}\". Shortcut count: {}", path.to_str().unwrap(), gra.shortcuts.len());
+            return gra;
+        } else {
+            println!("cn metadata not ok");
+        }
     }
     return create_save_cn_metadata(&path, initial_graph)
 }

@@ -184,7 +184,7 @@ impl<'a> CNGraphCreator<'a> {
                 };
 
                 // ignore duplicates - key is unique id which will not change
-                let key = edge.source.to_string() + &*edge.target.to_string();
+                let key = edge.source.to_string() + "_" + &*edge.target.to_string();
                 if !self.is_shortcut.contains_key(&*key) {
                     self.is_shortcut.insert(key, true);
                     self.modified_graph.add_new_edge(edge);
