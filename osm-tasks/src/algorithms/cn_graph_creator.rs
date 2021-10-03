@@ -11,23 +11,10 @@ use std::path::Path;
 use rand::Rng;
 use rand::distributions::Uniform;
 use rand::prelude::SliceRandom;
-use serde::{Deserialize, Serialize};
+use crate::model::cn_model::{Shortcut, CNMetadata};
 
-#[derive(Serialize, Deserialize, Clone)]
-struct CNMetadata {
-    graph: GridGraph,
-    shortcuts: Vec<Shortcut>,
-    is_shortcut: HashMap<String, bool>
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct Shortcut {
-    replaced_edges: Vec<u32>,
-    edge: Edge,
-}
-
-pub(crate) struct ContractionHierarchies {
-    graph_ref: GridGraph,
+pub(crate) struct CNGraphCreator<'a> {
+    graph_ref: &'a GridGraph,
     modified_graph: GridGraph,
     forward_heap: BinaryHeap<HeapItem>,
     backward_heap: BinaryHeap<HeapItem>,
@@ -35,7 +22,6 @@ pub(crate) struct ContractionHierarchies {
     backward_distances: Vec<u32>,
     forward_previous_nodes: Vec<u32>,
     backward_previous_nodes: Vec<u32>,
-    source_node: u32,
     amount_nodes_popped_forward: usize,
     amount_nodes_popped_backward: usize,
     mu: u32,
@@ -47,8 +33,8 @@ pub(crate) struct ContractionHierarchies {
     removed_edges: HashMap<u32, bool>,
 }
 
-impl ContractionHierarchies {
-    pub fn new(graph: GridGraph, source_node: u32) -> ContractionHierarchies {
+impl<'a> CNGraphCreator<'a> {
+    pub fn new(graph: &GridGraph) -> CNGraphCreator {
         let number_of_nodes = graph.nodes.len() as usize;
         let forward_heap = BinaryHeap::with_capacity(number_of_nodes);
         let backward_heap = BinaryHeap::with_capacity(number_of_nodes);
@@ -57,7 +43,7 @@ impl ContractionHierarchies {
         let forward_previous_nodes = vec![u32::MAX; number_of_nodes];
         let backward_previous_nodes = vec![u32::MAX; number_of_nodes];
 
-        return ContractionHierarchies {
+        return CNGraphCreator {
             graph_ref: graph,
             modified_graph: GridGraph {
                 number_edges: 0,
@@ -71,7 +57,6 @@ impl ContractionHierarchies {
             backward_distances,
             forward_previous_nodes,
             backward_previous_nodes,
-            source_node,
             amount_nodes_popped_forward: 0,
             amount_nodes_popped_backward: 0,
             mu: u32::MAX,
@@ -83,8 +68,8 @@ impl ContractionHierarchies {
         };
     }
 
-    pub fn preprocessing(&mut self) {
-        let mut rank = 1;
+    pub fn build_cn_graph(&mut self) -> CNMetadata {
+        println!("starting to create cn metadata");
         let number_edges_before = self.graph_ref.edges.concat().len();
         let mut collected_nodes = 0.0;
         self.modified_graph = (self.graph_ref).clone();
@@ -163,30 +148,20 @@ impl ContractionHierarchies {
 
         // final graph with added shortcuts
         println!("found {} shortcuts", self.shortcuts.len());
+        let mut final_graph = (*self.graph_ref).clone();
         for s in &self.shortcuts {
             // add shortcuts to initial graph
-            self.graph_ref.add_new_edge(s.edge);
+            final_graph.add_new_edge(s.edge);
         }
         println!("edges before {}, after {}", number_edges_before, self.graph_ref.edges.concat().len());
         println!("added {} shortcuts", self.shortcuts.len());
 
-        println!("finished - started copying graph");
-        let to_save = CNMetadata {
-            graph: self.graph_ref.clone(),
+        println!("finished building cn metadata - started copying graph");
+        return CNMetadata {
+            graph: final_graph,
             shortcuts: self.shortcuts.clone(),
             is_shortcut: self.is_shortcut.clone()
         };
-
-        // save graph to disc
-        let mut f = BufWriter::new(File::create(
-            Path::new("/home/gin/Documents/UNI/master/FachpraktikumAlgorithms/osm-tasks-fachpraktikum-algorithms-ss2021/osm-tasks/finally.bin")).unwrap());
-        if let Err(e) = bincode::serialize_into(&mut f, &to_save) {
-            println!("Could not save cn graph to disk: {:?}", e);
-        }
-    }
-
-    fn load_graph_from_memory(number_nodes: i64) {
-
     }
 
     fn find_shortcuts(&mut self, node: u32, dest: &[u32], adj_array: &AdjacencyArray, removed_nodes: &HashMap<u32, bool>) {
@@ -226,6 +201,7 @@ impl ContractionHierarchies {
         }
     }
 
+    /*
     pub fn find_route(&mut self, destination_node: u32) -> Option<(Vec<u32>, u32, u32)> {
         let meeting_node = self.bd_dijkstra(self.source_node, destination_node);
 
@@ -248,6 +224,8 @@ impl ContractionHierarchies {
               self.forward_distances[meeting_node as usize] + self.backward_distances[meeting_node as usize],
               (self.amount_nodes_popped_forward + self.amount_nodes_popped_backward) as u32))
     }
+
+
 
     fn bd_dijkstra(&mut self, source_node: u32, destination_node: u32) -> u32 {
         let adj_array = self.graph_ref.adjacency_array();
@@ -360,7 +338,7 @@ impl ContractionHierarchies {
             }
         }
         false
-    }
+    } */
 }
 
 fn calc_number_edges(v: u32, graph: &GridGraph) -> u32 {

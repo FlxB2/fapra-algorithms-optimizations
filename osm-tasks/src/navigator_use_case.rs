@@ -93,7 +93,7 @@ impl NavigatorUseCase {
     }
 
     pub(crate) fn test_ch(&self) {
-        self.navigator.lock().unwrap().test_ch();
+        //self.navigator.lock().unwrap().test_ch();
     }
 
     #[allow(dead_code)]
