@@ -34,7 +34,8 @@ impl Navigator for InMemoryGraph {
         };
 
         if config.build_graph_on_startup() {
-            let graph = read_or_create_graph(config.coastlines_file(), false, config.number_of_nodes());
+            let graph = read_or_create_graph(config.coastlines_file(),  config.force_rebuild_graph(), config.number_of_nodes());
+            let cn_metadata = read_or_create_cn_metadata(config.coastlines_file(),  config.force_rebuild_graph(), config.number_of_nodes(), &graph);
             let dijkstra = Some(Dijkstra::new(graph.adjacency_array(), graph.nodes.len() as u32 - 1));
             let nearest_neighbor = Some(NearestNeighbor::new(&graph.nodes));
             InMemoryGraph {
@@ -55,11 +56,11 @@ impl Navigator for InMemoryGraph {
 
     fn build_graph(&mut self, number_nodes: usize) {
         let config = Config::global();
-        self.graph = read_or_create_graph(config.coastlines_file(), false, number_nodes);
+        self.graph = read_or_create_graph(config.coastlines_file(),  config.force_rebuild_graph(), number_nodes);
         self.dijkstra = Some(Dijkstra::new(self.graph.adjacency_array(), (number_nodes - 1) as u32));
         self.nearest_neighbor = Some(NearestNeighbor::new(&self.graph.nodes));
 
-        self.cn_metadata = read_or_create_cn_metadata(config.coastlines_file(), false, number_nodes, &self.graph);
+        self.cn_metadata = read_or_create_cn_metadata(config.coastlines_file(),  config.force_rebuild_graph(), number_nodes, &self.graph);
     }
 
     fn calculate_route(&mut self, route_request: RouteRequest) -> Option<ShipRoute> {
@@ -187,11 +188,8 @@ impl Navigator for InMemoryGraph {
         let mut dijkstra_results_list: Vec<BenchmarkResult> = vec![];
         let mut dijkstra_time_per_distance: Vec<f32> = vec![];
         let mut a_star_results_list: Vec<BenchmarkResult> = vec![];
-        let mut a_star_time_per_distance: Vec<f32> = vec![];
         let mut bd_dijkstra_results_list: Vec<BenchmarkResult> = vec![];
-        let mut bd_dijkstra_time_per_distance: Vec<f32> = vec![];
         let mut ch_results_list: Vec<BenchmarkResult> = vec![];
-        let mut ch_time_per_distance: Vec<f32> = vec![];
 
         let random_nodes: Vec<Node> = self.graph.nodes.choose_multiple(&mut rand::thread_rng(), nmb_queries + 1).cloned().collect();
 
@@ -223,7 +221,6 @@ impl Navigator for InMemoryGraph {
                     println!("{}BAD RESULT A STAR nmb nodes dijkstra {} nmb nodes a star {} length diff {}{}",
                              color::Fg(color::Red), a_star_res.nmb_nodes, dijkstra_result.nmb_nodes, dijkstra_result.distance as i32 - a_star_res.distance as i32, color::Fg(color::Reset))
                 }
-                a_star_time_per_distance.push((a_star_res.distance as u64 / a_star_res.time) as f32);
             }
 
             let bd_dijkstra_result = self.benchmark_bd_dijkstra(start_node, end_node, i);
@@ -236,7 +233,6 @@ impl Navigator for InMemoryGraph {
                     println!("{}BAD RESULT BD DIJKSTRA nmb nodes dijkstra {} nmb nodes bd dijkstra {} length diff {}{}",
                              color::Fg(color::Red), dijkstra_result.nmb_nodes, bd_dijkstra_res.nmb_nodes, dijkstra_result.distance as i32 - bd_dijkstra_res.distance as i32, color::Fg(color::Reset))
                 }
-                bd_dijkstra_time_per_distance.push((bd_dijkstra_res.distance as u64 / bd_dijkstra_res.time) as f32);
             }
 
             let ch_result = self.test_ch(start_node, end_node, i);
@@ -249,25 +245,20 @@ impl Navigator for InMemoryGraph {
                     println!("{}BAD RESULT CH nmb nodes dijkstra {} nmb nodes ch {} length diff {}{}",
                              color::Fg(color::Red), dijkstra_result.nmb_nodes, ch_res.nmb_nodes, dijkstra_result.distance as i32 - ch_res.distance as i32, color::Fg(color::Reset))
                 }
-                ch_time_per_distance.push((ch_res.distance as u64 / ch_res.time) as f32);
             }
         }
         let mut results = CollectedBenchmarks {
             dijkstra: AlgoBenchmark {
                 results: dijkstra_results_list,
-                avg_distance_per_ms: average(dijkstra_time_per_distance.as_slice()),
             },
             a_star: AlgoBenchmark {
                 results: a_star_results_list,
-                avg_distance_per_ms: average(a_star_time_per_distance.as_slice()),
             },
             bd_dijkstra: AlgoBenchmark {
                 results: bd_dijkstra_results_list,
-                avg_distance_per_ms: average(bd_dijkstra_time_per_distance.as_slice()),
             },
             ch: AlgoBenchmark {
                 results: ch_results_list,
-                avg_distance_per_ms: average(ch_time_per_distance.as_slice()),
             }
         };
 

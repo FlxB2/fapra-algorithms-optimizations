@@ -12,3 +12,9 @@ Process to calculate a ship route:
   - Job ids are increments starting with zero
 - Request the route by inserting the job id and pressing the `Request Calculation Result` button
 
+Process to run benchmarks
+
+- Start the frontend and backend as described in the `README.md` files
+- Press the `Build Graph` button & wait until the graph has been built
+- Press the `Request Benchmark` button & wait until the benchmark has been completed
+- Press the `Show Benchmark Results` button & select the attribute which should be displayed per query result

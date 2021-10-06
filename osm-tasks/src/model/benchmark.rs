@@ -30,14 +30,12 @@ impl BenchmarkResult {
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 pub struct AlgoBenchmark {
     pub(crate) results: Vec<BenchmarkResult>,
-    pub(crate) avg_distance_per_ms: f32,
 }
 
 impl AlgoBenchmark {
     pub(crate) fn new() -> AlgoBenchmark {
         AlgoBenchmark {
             results: vec![],
-            avg_distance_per_ms: 0.0
         }
     }
 }

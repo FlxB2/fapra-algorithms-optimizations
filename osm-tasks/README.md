@@ -49,6 +49,12 @@ OPTIONS:
 ```
 Use the '-n <node number>' to set the number of nodes used for building the graph.
 After building the graph, the program will save the graph to disk into a file with the name `<coastlines_file>.<number_of_nodes>.bin`, which will be loaded at further program starts, if the same number of nodes and the same coastlines file (name) is used (unless the `-f` flag is used to ignore the file and rebuild the graph).
-## OpenAPI Specification
 
-We used [OpenAPI 3](https://swagger.io/specification/) to specify the API interfaces between the backend and the frontend. The specification file can be found at `http://localhost:8000/openapi.json`
+## REST API
+
+The API is documented automatically at `http://localhost:8000/swagger-ui/index.html`.
+
+### OpenAPI Specification
+
+We used [OpenAPI 3](https://swagger.io/specification/) to specify the API interfaces between the backend and the frontend. The specification file can be found at `http://localhost:8000/openapi.json`. The file is used to generate stubs for the frontend and to document the REST API automatically.
+
