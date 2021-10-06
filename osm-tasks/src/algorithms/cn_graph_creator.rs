@@ -12,6 +12,7 @@ use rand::Rng;
 use rand::distributions::Uniform;
 use rand::prelude::SliceRandom;
 use crate::model::cn_model::{Shortcut, CNMetadata};
+use std::time::Instant;
 
 pub(crate) struct CNGraphCreator<'a> {
     graph_ref: &'a GridGraph,
@@ -75,8 +76,11 @@ impl<'a> CNGraphCreator<'a> {
         let mut removed_nodes: HashMap<u32, bool> = HashMap::new();
         let mut i_set_size = ((1.0 / 100.0) * self.modified_graph.number_nodes as f64) as usize;
 
+        let start_time = Instant::now();
+
         // we aim to contract 90% of nodes
         while collected_nodes < ((9.0 / 10.0) * self.graph_ref.number_nodes as f64) {
+            println!("generating new independent set {} ms", start_time.elapsed().as_millis());
             let mut modified_adj_array = self.modified_graph.adjacency_array();
 
             // create independent set by picking nodes randomly
@@ -84,14 +88,17 @@ impl<'a> CNGraphCreator<'a> {
             let mut has_enough_nodes = false;
             let mut independent_set = Vec::with_capacity(i_set_size as usize);
             let range = Uniform::from(0..(self.modified_graph.nodes.len() as u32));
+            let sample_size = i_set_size * 2;
 
             while !has_enough_nodes {
-                let choices: Vec<u32> = rand::thread_rng().sample_iter(&range).take(2 * i_set_size as usize).collect();
+                let choices: Vec<u32> = rand::thread_rng().sample_iter(&range).take(sample_size as usize).collect();
+                println!("generated random numbers {} ms", start_time.elapsed().as_millis());
                 let mut cnt: i32 = -1;
                 'node: for node in choices {
                     cnt += 1;
                     if removed_nodes.contains_key(&node) {
-                        if cnt == i_set_size as i32 {
+                        if cnt == sample_size as i32 {
+                            // we looked at all samples, sample again random values
                             break 'node;
                         }
                         continue 'node;
@@ -114,7 +121,7 @@ impl<'a> CNGraphCreator<'a> {
                     }
                 }
             }
-            println!("found independent set w/ size {}", i_set_size);
+            println!("found independent set w/ size {} in {} ms", i_set_size, start_time.elapsed().as_millis());
 
             let mut rank_map: Vec<Vec<u32>> = vec![vec![]; 15];
 
@@ -126,36 +133,49 @@ impl<'a> CNGraphCreator<'a> {
                 let curr_rank = calc_number_edges(independent_set[i], &self.graph_ref) as usize;
                 rank_map[curr_rank].push(independent_set[i]);
             }
-            println!("collected nodes {}", collected_nodes);
+            println!("collected nodes {} in {} ms", collected_nodes, start_time.elapsed().as_millis());
 
+            let mut index_max_nmb_nodes_in_rank= 0;
+            let mut max_nmb_nodes = 0;
+            for rank in 0..15 {
+                if rank_map[rank].len() > max_nmb_nodes {
+                    max_nmb_nodes = rank_map[rank].len();
+                    index_max_nmb_nodes_in_rank = rank;
+                }
+                //println!("rank {}, len {}", rank, rank_map[rank].len());
+            }
+            rank_map[index_max_nmb_nodes_in_rank] = vec![];
             // TODO this might be shit, way too many duplicate paths? okay maybe not
-            for i in 0..rank_map.len() - 1 {
+            for i in 1..6 {
                 // we only create shortcuts between lower to higher ranks
                 let destinations: &[u32] = &rank_map[i + 1..rank_map.len()].concat();
                 for j in 0..rank_map[i].len() {
                     // find route from node i,j to destinations
                     self.find_shortcuts(rank_map[i][j], destinations, &modified_adj_array, &removed_nodes);
                 }
+                println!("rank {} done in {} ms", i, start_time.elapsed().as_millis());
             }
+            println!("found shortcuts between nodes, nmb already collected: {}, time: {} ms", self.get_shortcut.keys().len(), start_time.elapsed().as_millis());
 
             // remove nodes for sweeps after this one
             for i in 0..independent_set.len() {
                 self.modified_graph.remove_node(independent_set[i]);
                 removed_nodes.insert(independent_set[i], true);
             }
+            println!("removed nodes from graph in {}", start_time.elapsed().as_millis());
         }
 
         // final graph with added shortcuts
-        println!("found {} shortcuts", self.get_shortcut.keys().len());
+        println!("found {} shortcuts, after {} ms", self.get_shortcut.keys().len(), start_time.elapsed().as_millis());
         let mut final_graph = (*self.graph_ref).clone();
         for s in self.get_shortcut.values() {
             // add shortcuts to initial graph
             final_graph.add_new_edge(s.edge);
         }
-        println!("edges before {}, after {}", number_edges_before, self.graph_ref.edges.concat().len());
+        println!("edges before {}, after {}", number_edges_before, final_graph.edges.concat().len());
         println!("added {} shortcuts", self.get_shortcut.keys().len());
 
-        println!("finished building cn metadata - started copying graph");
+        println!("finished building cn metadata - started copying graph after {} ms", start_time.elapsed().as_millis());
         return CNMetadata {
             graph: final_graph,
             get_shortcut: self.get_shortcut.clone()
