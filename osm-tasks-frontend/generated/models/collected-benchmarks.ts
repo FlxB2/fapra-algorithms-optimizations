@@ -4,5 +4,6 @@ import { AlgoBenchmark } from './algo-benchmark';
 export interface CollectedBenchmarks {
   a_star: AlgoBenchmark;
   bd_dijkstra: AlgoBenchmark;
+  ch: AlgoBenchmark;
   dijkstra: AlgoBenchmark;
 }

@@ -4,6 +4,8 @@ import * as am4core from '@amcharts/amcharts4/core';
 import * as am4charts from '@amcharts/amcharts4/charts';
 import { ApiService } from '../../../generated/services/api.service';
 import am4themes_material from "@amcharts/amcharts4/themes/material";
+import { ActivatedRoute } from '@angular/router';
+import { switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-statistics',
@@ -11,12 +13,19 @@ import am4themes_material from "@amcharts/amcharts4/themes/material";
   styleUrls: ['./statistics.component.css']
 })
 export class StatisticsComponent implements OnInit {
+  mode = 'time'
 
-  constructor(private apiService: ApiService) {
+  constructor(private apiService: ApiService, private route: ActivatedRoute) {
   }
 
   ngOnInit(): void {
     am4core.useTheme(am4themes_material);
+
+    let param = this.route.queryParams['value']['mode'];
+    if (param != null) {
+      this.mode = param;
+    }
+
     this.requestBenchmarkResult()
   }
 
@@ -29,10 +38,6 @@ export class StatisticsComponent implements OnInit {
   }
 
   generateChart(data: CollectedBenchmarks) {
-    let dijkstra_results = data.dijkstra.results
-    let bd_dijkstra_results = data.bd_dijkstra.results
-    let a_star_results = data.a_star.results
-
     let chart = am4core.create("chart", am4charts.XYChart);
     chart.numberFormatter.numberFormat = "#a";
     chart.numberFormatter.bigNumberPrefixes = [
@@ -43,34 +48,32 @@ export class StatisticsComponent implements OnInit {
     chart.data = data as any
 
     let yAxis = chart.yAxes.push(new am4charts.ValueAxis());
-    yAxis.title.text = "Nanoseconds"
+    if (this.mode == 'time') {
+      yAxis.title.text = "Nanoseconds"
+    } else if (this.mode == 'amount_nodes_popped') {
+      yAxis.title.text = "Number nodes popped"
+    } else {
+      yAxis.title.text = this.mode
+    }
     let xAxis = chart.xAxes.push(new am4charts.ValueAxis());
     xAxis.title.text = "Query ID"
 
-    let series = chart.series.push(new am4charts.LineSeries());
-    series.name = "Dijkstra"
-    series.data = dijkstra_results
-    series.dataFields.valueY = "time"
-    series.dataFields.valueX = "query_id"
-    series.tooltipText = "{name} {valueX}: \n {valueY}";
-    series.strokeWidth = 3
+    this.createSeries(chart, "Dijkstra", data.dijkstra.results);
+    this.createSeries(chart, "Bidirectional Dijkstra", data.bd_dijkstra.results);
+    this.createSeries(chart, "A Star", data.a_star.results);
+    this.createSeries(chart, "CH", data.ch.results);
 
-    let seriesBD = chart.series.push(new am4charts.LineSeries());
-    seriesBD.name = "Bidirectional Dijkstra"
-    seriesBD.data = bd_dijkstra_results
-    seriesBD.dataFields.valueY = "time"
-    seriesBD.dataFields.valueX = "query_id"
-    seriesBD.tooltipText = "{name} {query_id}: \n {time}";
-    seriesBD.strokeWidth = 3
-
-    let seriesA = chart.series.push(new am4charts.LineSeries());
-    seriesA.name = "AStar"
-    seriesA.data = a_star_results
-    seriesA.dataFields.valueY = "time"
-    seriesA.dataFields.valueX = "query_id"
-    seriesA.tooltipText = "{name} {query_id}: \n {time}";
-    seriesA.strokeWidth = 3
-
+    chart.cursor = new am4charts.XYCursor();
     chart.legend = new am4charts.Legend();
+  }
+
+  createSeries(chart: am4charts.XYChart, name: string, data: any) {
+    let series = chart.series.push(new am4charts.LineSeries());
+    series.name = name
+    series.data = data
+    series.dataFields.valueY = this.mode
+    series.dataFields.valueX = "query_id"
+    series.tooltipText = "{name} {query_id}: \n {time}";
+    series.strokeWidth = 3
   }
 }

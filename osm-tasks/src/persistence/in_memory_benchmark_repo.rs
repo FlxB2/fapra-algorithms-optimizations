@@ -13,7 +13,8 @@ impl BenchmarkRepo for InMemoryBenchmarkRepo {
             benchmarks: CollectedBenchmarks {
                 dijkstra: AlgoBenchmark::new(),
                 a_star: AlgoBenchmark::new(),
-                bd_dijkstra: AlgoBenchmark::new()
+                bd_dijkstra: AlgoBenchmark::new(),
+                ch: AlgoBenchmark::new()
             },
             finished: false
         }

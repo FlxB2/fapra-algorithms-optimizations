@@ -28,9 +28,17 @@
     <button type="button" (click)="requestBenchmark()" class="btn btn-primary mt-1">
       Request Benchmark
     </button>
-    <button type="button" [routerLink]="'/statistics'" class="btn btn-primary mt-1">
-      Show Benchmark Result
-    </button>
+    <div class="btn-group mt-1" dropdown>
+      <button id="button-basic" dropdownToggle type="button" class="btn btn-primary dropdown-toggle"
+              aria-controls="dropdown-basic">
+        Show Benchmark Results <span class="caret"></span>
+      </button>
+      <ul id="dropdown-basic" *dropdownMenu class="dropdown-menu"
+          role="menu" aria-labelledby="button-basic">
+        <li role="menuitem"><a class="dropdown-item" [routerLink]="'/statistics'" [queryParams]="{mode: 'time'}">Time in ns</a></li>
+        <li role="menuitem"><a class="dropdown-item" [routerLink]="'/statistics'" [queryParams]="{mode: 'amount_nodes_popped'}">Number nodes Popped</a></li>
+      </ul>
+    </div>
   </div>
   <div *ngFor="let alert of alerts">
     <alert [type]="alert.type" [dismissOnTimeout]="alert.timeout">{{ alert.msg }}</alert>

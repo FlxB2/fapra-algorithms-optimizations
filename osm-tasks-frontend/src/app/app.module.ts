@@ -11,6 +11,8 @@ import { ModalModule } from 'ngx-bootstrap/modal';
 import { StatisticsComponent } from './statistics/statistics.component';
 import { appRoutingModule } from './app.routing';
 import { MapComponent } from './map/map.component';
+import { BsDropdownModule } from 'ngx-bootstrap/dropdown';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 // @ts-ignore
 @NgModule({
@@ -21,13 +23,15 @@ import { MapComponent } from './map/map.component';
   ],
   imports: [
     appRoutingModule,
+    BrowserAnimationsModule,
     BrowserModule,
     LeafletModule,
     ApiModule.forRoot({ rootUrl: 'http://localhost:8000' }),
     HttpClientModule,
     FormsModule,
     AlertModule.forRoot(),
-    ModalModule.forRoot()
+    ModalModule.forRoot(),
+    BsDropdownModule
   ],
   bootstrap: [AppComponent]
 })

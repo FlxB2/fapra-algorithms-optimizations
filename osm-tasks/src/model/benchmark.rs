@@ -46,5 +46,6 @@ impl AlgoBenchmark {
 pub struct CollectedBenchmarks {
     pub(crate) dijkstra: AlgoBenchmark,
     pub(crate) a_star: AlgoBenchmark,
-    pub(crate) bd_dijkstra: AlgoBenchmark
+    pub(crate) bd_dijkstra: AlgoBenchmark,
+    pub(crate) ch: AlgoBenchmark,
 }

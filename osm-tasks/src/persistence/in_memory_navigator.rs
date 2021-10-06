@@ -190,6 +190,9 @@ impl Navigator for InMemoryGraph {
         let mut a_star_time_per_distance: Vec<f32> = vec![];
         let mut bd_dijkstra_results_list: Vec<BenchmarkResult> = vec![];
         let mut bd_dijkstra_time_per_distance: Vec<f32> = vec![];
+        let mut ch_results_list: Vec<BenchmarkResult> = vec![];
+        let mut ch_time_per_distance: Vec<f32> = vec![];
+
         let random_nodes: Vec<Node> = self.graph.nodes.choose_multiple(&mut rand::thread_rng(), nmb_queries + 1).cloned().collect();
 
         for i in 0..random_nodes.len() - 1 {
@@ -198,6 +201,12 @@ impl Navigator for InMemoryGraph {
 
             // BASELINE DIJKSTRA, every result has to be equivalent
             let possible_dijkstra_result = self.benchmark_dijkstra(start_node, end_node, i);
+
+            if possible_dijkstra_result.is_none() {
+                // some routes can not be calculated because there exist some nodes without neighbors
+                continue;
+            }
+
             let dijkstra_result = possible_dijkstra_result.expect("dijkstra result not available");
             dijkstra_time_per_distance.push((dijkstra_result.distance as u64 / dijkstra_result.time) as f32);
             dijkstra_results_list.push(dijkstra_result);
@@ -231,6 +240,17 @@ impl Navigator for InMemoryGraph {
             }
 
             let ch_result = self.test_ch(start_node, end_node, i);
+            if let Some(ch_res) = ch_result {
+                if ch_res.nmb_nodes == dijkstra_result.nmb_nodes && dijkstra_result.distance == ch_res.distance {
+                    ch_results_list.push(ch_res);
+                    let time_diff: i64 = dijkstra_result.time as i64 - ch_res.time as i64;
+                    println!("Got ch result with time {} diff to dijkstra {}", ch_res.time, time_diff);
+                } else {
+                    println!("{}BAD RESULT CH nmb nodes dijkstra {} nmb nodes ch {} length diff {}{}",
+                             color::Fg(color::Red), dijkstra_result.nmb_nodes, ch_res.nmb_nodes, dijkstra_result.distance as i32 - ch_res.distance as i32, color::Fg(color::Reset))
+                }
+                ch_time_per_distance.push((ch_res.distance as u64 / ch_res.time) as f32);
+            }
         }
         let mut results = CollectedBenchmarks {
             dijkstra: AlgoBenchmark {
@@ -244,6 +264,10 @@ impl Navigator for InMemoryGraph {
             bd_dijkstra: AlgoBenchmark {
                 results: bd_dijkstra_results_list,
                 avg_distance_per_ms: average(bd_dijkstra_time_per_distance.as_slice()),
+            },
+            ch: AlgoBenchmark {
+                results: ch_results_list,
+                avg_distance_per_ms: average(ch_time_per_distance.as_slice()),
             }
         };
 
