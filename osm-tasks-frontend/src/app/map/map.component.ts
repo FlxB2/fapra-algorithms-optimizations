@@ -89,7 +89,7 @@ export class MapComponent implements OnInit {
   }
 
   buildGraph() {
-    this.apiService.buildGraph().subscribe(
+    this.apiService.buildGraph({ num_nodes: 1000000 }).subscribe(
       _ => this.showAlert('Building graph.. this might take a while', 'info'));
   }
 

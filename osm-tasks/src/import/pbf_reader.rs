@@ -16,15 +16,18 @@ use crate::export::json_generator::JsonBuilder;
 use crate::export::kml_exporter::KmlExport;
 use crate::model::grid_graph::GridGraph;
 use crate::model::grid_graph;
+use crate::model::cn_model::CNMetadata;
+use crate::algorithms::cn_graph_creator::CNGraphCreator;
 
 /// tries to load the graph for this from disk and builds the graph if prebuild graph was found.
-pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, force_create: bool) -> GridGraph {
-    let osm_path= Path::new(osm_path_name);
+pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, force_create: bool, number_nodes: usize) -> GridGraph {
+    let osm_path = Path::new(osm_path_name);
     let osm_name = osm_path.file_name().unwrap();
     let mut graph_file_name = osm_name.to_str().unwrap().to_owned();
     graph_file_name.push_str(".");
-    graph_file_name.push_str(&*grid_graph::get_maximum_number_of_nodes().to_string());
-    graph_file_name.push_str(".bin");
+    graph_file_name.push_str(&*number_nodes.to_string());
+    graph_file_name.push_str(".bin_new");
+    println!("force create? {}, filename {}", force_create, graph_file_name);
     let path = osm_path.with_file_name(graph_file_name);
     if !force_create {
         let disk_graph = load_graph_from_disk(&path);
@@ -32,16 +35,57 @@ pub(crate) fn read_or_create_graph<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, 
             let gra = disk_graph.unwrap();
             println!("Loaded graph from disk \"{}\". Node count: {}", path.to_str().unwrap(), gra.nodes.len());
             return gra;
+        } else {
+            println!("graph not ok");
         }
     }
     let polygons = read_file(osm_path.to_str().unwrap());
     let polygon_test = PointInPolygonTest::new(polygons);
 
     // assign new value to the GRAPH reference
-    let gra = GridGraph::new(&polygon_test);
+    let gra = GridGraph::new(&polygon_test, number_nodes);
     save_graph_to_disk(&path, &gra);
     println!("Saved graph to disk at {}", path.to_str().unwrap());
+
     return gra;
+}
+
+pub(crate) fn read_or_create_cn_metadata<S: AsRef<OsStr> + ?Sized>(osm_path_name: &S, force_recreate: bool, number_nodes: usize, initial_graph: &GridGraph) -> CNMetadata {
+    let osm_path = Path::new(osm_path_name);
+    let osm_name = osm_path.file_name().unwrap();
+    let mut graph_file_name = osm_name.to_str().unwrap().to_owned();
+    graph_file_name.push_str(".");
+    graph_file_name.push_str(&*number_nodes.to_string());
+    graph_file_name.push_str(".cn_meta");
+
+    let path = osm_path.with_file_name(graph_file_name);
+
+    if !force_recreate {
+        let disk_graph = load_cn_meta_from_disk(&path);
+        if disk_graph.is_ok() {
+            let gra = disk_graph.unwrap();
+            println!("Loaded cn metadata from disk \"{}\". Shortcut count: {}", path.to_str().unwrap(), gra.get_shortcut.keys().len());
+            return gra;
+        } else {
+            println!("cn metadata not ok");
+        }
+    }
+    return create_save_cn_metadata(&path, initial_graph)
+}
+
+fn create_save_cn_metadata(path: &Path, initial_graph: &GridGraph) -> CNMetadata {
+    let mut creator = CNGraphCreator::new(initial_graph);
+    let data = creator.build_cn_graph();
+    save_cn_metadata_to_disk(path, &data);
+    println!("saved cn metadata at {}", path.to_str().unwrap());
+    return data;
+}
+
+fn save_cn_metadata_to_disk(path: &Path, meta: &CNMetadata) {
+    let mut f = BufWriter::new(File::create(path).unwrap());
+    if let Err(e) = bincode::serialize_into(&mut f, meta) {
+        println!("Could not save cn metadata to disk: {:?}", e);
+    }
 }
 
 fn save_graph_to_disk(path: &Path, graph: &GridGraph) {
@@ -52,6 +96,11 @@ fn save_graph_to_disk(path: &Path, graph: &GridGraph) {
 }
 
 fn load_graph_from_disk(path: &Path) -> bincode::Result<GridGraph> {
+    let mut f = BufReader::new(File::open(path)?);
+    bincode::deserialize_from(&mut f)
+}
+
+fn load_cn_meta_from_disk(path: &Path) -> bincode::Result<CNMetadata> {
     let mut f = BufReader::new(File::open(path)?);
     bincode::deserialize_from(&mut f)
 }
@@ -171,6 +220,7 @@ pub fn lines_to_json(lines: Vec<((f64, f64), (f64, f64))>) -> String {
   ]
 }}", features)
 }
+
 #[allow(dead_code)]
 fn export_polygons_with_resolution(polygons: Vec<Vec<(f64, f64)>>, path: String, max_nodes_per_polygon: usize) {
     let mut kml = KmlExport::init();
@@ -186,6 +236,7 @@ fn export_polygons_with_resolution(polygons: Vec<Vec<(f64, f64)>>, path: String,
     });
     kml.write_file(path);
 }
+
 #[allow(dead_code)]
 fn test_random_points_in_polygon(polygon_test: &PointInPolygonTest, number_of_points_to_test: usize, (lon_min, lon_max, lat_min, lat_max): (f64, f64, f64, f64)) -> Vec<(f64, f64)> {
     let mut rng = rand::thread_rng();

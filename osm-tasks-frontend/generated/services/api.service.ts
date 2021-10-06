@@ -78,11 +78,13 @@ export class ApiService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  buildGraph$Response(params?: {
+  buildGraph$Response(params: {
+    num_nodes: number;
   }): Observable<StrictHttpResponse<void>> {
 
     const rb = new RequestBuilder(this.rootUrl, ApiService.BuildGraphPath, 'post');
     if (params) {
+      rb.query('num_nodes', params.num_nodes, {});
     }
 
     return this.http.request(rb.build({
@@ -102,7 +104,8 @@ export class ApiService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  buildGraph(params?: {
+  buildGraph(params: {
+    num_nodes: number;
   }): Observable<void> {
 
     return this.buildGraph$Response(params).pipe(
@@ -343,6 +346,49 @@ export class ApiService extends BaseService {
 
     return this.startBenchmark$Response(params).pipe(
       map((r: StrictHttpResponse<Response>) => r.body as Response)
+    );
+  }
+
+  /**
+   * Path part for operation testCh
+   */
+  static readonly TestChPath = '/testCH';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `testCh()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  testCh$Response(params?: {
+  }): Observable<StrictHttpResponse<void>> {
+
+    const rb = new RequestBuilder(this.rootUrl, ApiService.TestChPath, 'get');
+    if (params) {
+    }
+
+    return this.http.request(rb.build({
+      responseType: 'text',
+      accept: '*/*'
+    })).pipe(
+      filter((r: any) => r instanceof HttpResponse),
+      map((r: HttpResponse<any>) => {
+        return (r as HttpResponse<any>).clone({ body: undefined }) as StrictHttpResponse<void>;
+      })
+    );
+  }
+
+  /**
+   * This method provides access to only to the response body.
+   * To access the full response (for headers, for example), `testCh$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  testCh(params?: {
+  }): Observable<void> {
+
+    return this.testCh$Response(params).pipe(
+      map((r: StrictHttpResponse<void>) => r.body as void)
     );
   }
 

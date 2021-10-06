@@ -44,7 +44,6 @@ export class StatisticsComponent implements OnInit {
 
     let yAxis = chart.yAxes.push(new am4charts.ValueAxis());
     yAxis.title.text = "Nanoseconds"
-    yAxis.renderer.grid.template.location = 0;
     let xAxis = chart.xAxes.push(new am4charts.ValueAxis());
     xAxis.title.text = "Query ID"
 
@@ -71,9 +70,6 @@ export class StatisticsComponent implements OnInit {
     seriesA.dataFields.valueX = "query_id"
     seriesA.tooltipText = "{name} {query_id}: \n {time}";
     seriesA.strokeWidth = 3
-
-    chart.cursor = new am4charts.XYCursor();
-    chart.cursor.xAxis = xAxis;
 
     chart.legend = new am4charts.Legend();
   }

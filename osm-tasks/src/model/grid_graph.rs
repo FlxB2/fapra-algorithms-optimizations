@@ -10,6 +10,7 @@ use std::time::Instant;
 use crate::config::Config;
 use crate::model::adjacency_array::AdjacencyArray;
 use crate::algorithms::polygon_test::PointInPolygonTest;
+use std::collections::HashMap;
 
 /// Returns the upper bound of the number of nodes in this graph.
 pub fn get_maximum_number_of_nodes() -> usize {
@@ -20,11 +21,20 @@ pub fn get_maximum_number_of_nodes() -> usize {
 pub struct Edge {
     pub source: u32,
     pub target: u32,
-    distance: u32,
+    pub(crate) distance: u32,
 }
+
+impl PartialEq for Edge {
+    fn eq(&self, other: &Self) -> bool {
+        other.source == self.source && other.target == self.target
+    }
+}
+
+impl Eq for Edge {}
 
 #[derive(Clone, Copy, Serialize, Deserialize, JsonSchema, Debug)]
 pub struct Node {
+    pub removed: bool,
     pub lat: f64,
     pub lon: f64,
 }
@@ -32,63 +42,83 @@ pub struct Node {
 impl Node {
     pub(crate) fn new() -> Node {
         Node {
+            removed: false,
             lat: 0.0,
             lon: 0.0
         }
     }
 }
 
-impl Into<(f64,f64)> for Node {
+impl Into<(f64, f64)> for Node {
     fn into(self) -> (f64, f64) {
         (self.lon, self.lat)
     }
 }
 
-#[derive( Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct GridGraph {
+    pub number_edges: i64,
     pub number_nodes: i64,
-    // index equals node id
-    // defines number of neighbors for node at index
-    pub offsets: Vec<u32>,
-    pub edges: Vec<Edge>,
+    // index equals node id of source
+    pub edges: Vec<Vec<Edge>>,
     // index equals node id
     pub nodes: Vec<Node>,
 }
 
 impl GridGraph {
-
-    /// Generates an adjacency array representation of the edges of this graph
+    // Generates an adjacency array representation of the edges of this graph
     pub fn adjacency_array(&self) -> AdjacencyArray {
-        let mut edges_and_distances = vec![u32::MAX; self.edges.len() * 2];
-        self.edges.iter().enumerate().for_each(|(i, edge)| {
-            edges_and_distances[i * 2] = edge.target;
-            edges_and_distances[i * 2 + 1] = edge.distance;
+        let mut edges_and_distances = vec![u32::MAX; (self.number_edges * 2) as usize];
+        let mut offsets = vec![u32::MAX; self.number_nodes as usize + 1];
+        let mut counter = 0;
+        let mut prev_offset = 0;
+        self.edges.iter().enumerate().for_each(|(i, edges)| {
+            // for each node add all edges to adj array
+            for j in 0..edges.len() {
+                edges_and_distances[counter * 2] = edges[j].target;
+                edges_and_distances[counter * 2 + 1] = edges[j].distance;
+                counter += 1;
+            }
+
+            offsets[i] = prev_offset;
+            prev_offset += self.edges[i].len() as u32 * 2
         });
-        let edges_and_distances_offsets: Vec<u32> = self.offsets.iter().map(|i|{i*2}).collect();
-        AdjacencyArray::new(edges_and_distances_offsets, edges_and_distances)
+        offsets[self.number_nodes as usize] = prev_offset;
+        return AdjacencyArray::new(offsets, edges_and_distances);
+    }
+
+    pub fn remove_node(&mut self, v: u32) {
+        self.nodes[v as usize].removed = true;
+        self.number_edges -= self.edges[v as usize].len() as i64;
+        self.edges[v as usize] = vec![];
+    }
+
+    pub fn add_new_edge(&mut self, edge: Edge) {
+        self.edges[edge.source as usize].push(edge);
+        self.number_edges += 1;
     }
 
     // distance in km, should be sufficient
-    pub fn get_distance(&self, node1: u32, node2:u32) -> u64 {
+    pub fn get_distance(&self, node1: u32, node2: u32) -> u64 {
         calculate_length_between_points_on_sphere(&self.nodes[node1 as usize], &self.nodes[node2 as usize]) as u64
     }
 
     pub fn default() -> GridGraph {
         GridGraph {
+            number_edges: 0,
             number_nodes: 0,
-            offsets: Vec::new(),
             edges: Vec::new(),
-            nodes: Vec::new()
+            nodes: Vec::new(),
         }
     }
-    pub fn new(polygon_test: &PointInPolygonTest) -> GridGraph {
+    pub fn new(polygon_test: &PointInPolygonTest, number_nodes: usize) -> GridGraph {
         // mapping from virtual nodes indices (0..NUMBER_NODES) (includes nodes inside of polygons) to the actual nodes of the grid (includes only nodes of the graph)
         let start_time = Instant::now();
-        let maximum_number_of_nodes = get_maximum_number_of_nodes();
-        let mut virtual_nodes_to_index: Vec<Option<u32>> = vec![None;maximum_number_of_nodes];
+        let maximum_number_of_nodes = number_nodes;
+        let mut virtual_nodes_to_index: Vec<Option<u32>> = vec![None; maximum_number_of_nodes];
         let mut number_virtual_nodes: usize = 0;
         let mut number_graph_nodes: usize = 0;
-        let mut nodes = vec![Node { lat: 0.0, lon: 0.0}; maximum_number_of_nodes];
+        let mut nodes = vec![Node { removed: false, lat: 0.0, lon: 0.0 }; maximum_number_of_nodes];
         let mut edges: Vec<Vec<Edge>> = vec![Vec::with_capacity(8); maximum_number_of_nodes];
 
         // algorithm taken from here https://www.cmu.edu/biolphys/deserno/pdf/sphere_equi.pdf
@@ -105,7 +135,7 @@ impl GridGraph {
         let mut number_virtual_nodes_before_last_round = 0;
         // calculated in rad!!
         for m in (0..m_theta).rev() {
-            if ((number_virtual_nodes as f64 / maximum_number_of_nodes as f64)*100.0).ceil() as i32 > ((number_virtual_nodes_before_last_round as f64 / maximum_number_of_nodes as f64)*100.0).ceil() as i32 {
+            if ((number_virtual_nodes as f64 / maximum_number_of_nodes as f64) * 100.0).ceil() as i32 > ((number_virtual_nodes_before_last_round as f64 / maximum_number_of_nodes as f64) * 100.0).ceil() as i32 {
                 println!("Generating graph: {}%", ((number_virtual_nodes as f64 / maximum_number_of_nodes as f64) * 100.0).ceil() as i32);
             }
             let polar = pi * ((m as f64) + 0.5) / (m_theta as f64);
@@ -114,7 +144,7 @@ impl GridGraph {
             let number_virtual_nodes_at_start_of_this_round = number_virtual_nodes;
             let lat = polar * (180.0 / pi) - 90.0;
             // Do point in polygon test in parallel and collect results
-            let nodes_to_place : Vec<(i32, Option<Node>)> = (0..m_phi).into_par_iter().map(|n| {
+            let nodes_to_place: Vec<(i32, Option<Node>)> = (0..m_phi).into_par_iter().map(|n| {
                 let azimuthal = 2.0 * pi * (n as f64) / (m_phi as f64);
 
                 // convert rad to degrees and lon = polar - 90; lat = azimuthal-180
@@ -123,7 +153,7 @@ impl GridGraph {
                 if polygon_test.check_intersection(*&(lon, lat)) {
                     (n, None)
                 } else {
-                    let source_node = Node {lat, lon};
+                    let source_node = Node { removed: false, lat, lon };
                     (n, Some(source_node))
                 }
             }).collect();
@@ -164,7 +194,6 @@ impl GridGraph {
                                                     add_extra_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_left_node - 1)]);
                                                     if let Some(left_neighbor_index) = &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_at_start_of_this_round, &(m_phi as usize), number_virtual_nodes + (m_phi - 1) as usize)] {
                                                         add_extra_edge(&mut edges, &nodes, *left_neighbor_index as usize, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_right_node)]);
-
                                                     }
                                                 }
                                                 last_node_mid_top_node_orientation = NodeOrientation::RIGHT;
@@ -178,7 +207,6 @@ impl GridGraph {
                                                 add_extra_edge(&mut edges, &nodes, number_graph_nodes, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_left_node - 1)]);
                                                 if let Some(left_neighbor_index) = &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_at_start_of_this_round, &(m_phi as usize), number_virtual_nodes + (m_phi - 1) as usize)] {
                                                     add_extra_edge(&mut edges, &nodes, *left_neighbor_index as usize, &virtual_nodes_to_index[calc_index_modulo(&number_virtual_nodes_before_last_round, &number_azimuth_steps_last_round, virtual_index_top_right_node)]);
-
                                                 }
                                             }
                                         }
@@ -203,49 +231,57 @@ impl GridGraph {
             number_virtual_nodes_before_last_round = number_virtual_nodes_at_start_of_this_round;
         }
         // flatten edge array to 1 dimension and calculate offsets
-        let mut offsets = Vec::with_capacity(edges.len()+1);
+        /*
+        let mut offsets = Vec::with_capacity(edges.len() + 1);
         offsets.push(0);
         let mut last_offset = 0;
         for i in 0..number_graph_nodes {
             last_offset = edges[i].len() as u32 + last_offset;
             offsets.push(last_offset);
         }
-        let flattened_edges: Vec<Edge> = edges.concat();
+        let flattened_edges: Vec<Edge> = edges.concat(); */
+
+        let mut number_edges = 0;
+        edges.iter().for_each(|e| number_edges += e.len());
+
         println!("number even distributed nodes {}", number_virtual_nodes);
         println!("number placed nodes {}", number_graph_nodes);
-        println!("number edges {}", flattened_edges.len());
+        println!("number edges {}", number_edges);
 
         // Remove unset nodes from nodes array
         nodes.truncate(number_graph_nodes);
+        edges.truncate(number_graph_nodes);
         println!("Generated graph in {} seconds", start_time.elapsed().as_secs());
         GridGraph {
+            number_edges: number_edges as i64,
             number_nodes: number_graph_nodes as i64,
-            edges: flattened_edges,
-            offsets,
+            edges,
             nodes,
         }
     }
 }
-fn add_edge(edges: &mut Vec<Vec<Edge>>, nodes: &Vec<Node>, node1_idx: usize, node2_idx_option: &Option<u32>) -> Option<f64>{
+
+fn add_edge(edges: &mut Vec<Vec<Edge>>, nodes: &Vec<Node>, node1_idx: usize, node2_idx_option: &Option<u32>) -> Option<f64> {
     if let Some(node2_idx) = node2_idx_option {
         // target node is part of the graph
         let distance = calculate_length_between_points_on_sphere(&nodes[node1_idx as usize], &nodes[*node2_idx as usize]);
-        edges[node1_idx].push(Edge{source: node1_idx as u32, target: *node2_idx, distance: distance as u32});
-        edges[*node2_idx as usize].push(Edge{source: *node2_idx, target: node1_idx as u32, distance: distance as u32});
+        edges[node1_idx].push(Edge { source: node1_idx as u32, target: *node2_idx, distance: distance as u32 });
+        edges[*node2_idx as usize].push(Edge { source: *node2_idx, target: node1_idx as u32, distance: distance as u32 });
         return Some(distance);
     }
     return None;
 }
+
 // like add_edge but checks if the edge is already present before inserting the edge
-fn add_extra_edge(edges: &mut Vec<Vec<Edge>>, nodes: &Vec<Node>, node1_idx: usize, node2_idx_option: &Option<u32>) -> Option<f64>{
+fn add_extra_edge(edges: &mut Vec<Vec<Edge>>, nodes: &Vec<Node>, node1_idx: usize, node2_idx_option: &Option<u32>) -> Option<f64> {
     if let Some(node2_idx) = node2_idx_option {
         // target node is part of the graph
         let distance = calculate_length_between_points_on_sphere(&nodes[node1_idx as usize], &nodes[*node2_idx as usize]);
         // check for duplicates
-        if !edges[node1_idx].iter().any(|e| {e.target == *node2_idx}) {
+        if !edges[node1_idx].iter().any(|e| { e.target == *node2_idx }) {
             edges[node1_idx].push(Edge { source: node1_idx as u32, target: *node2_idx, distance: distance as u32 });
         }
-        if !edges[*node2_idx as usize].iter().any(|e| {e.target == node1_idx as u32}) {
+        if !edges[*node2_idx as usize].iter().any(|e| { e.target == node1_idx as u32 }) {
             edges[*node2_idx as usize].push(Edge { source: *node2_idx, target: node1_idx as u32, distance: distance as u32 });
         }
         return Some(distance);
@@ -282,5 +318,7 @@ pub fn distance(lon1_deg: f64, lat1_deg: f64, lon2_deg: f64, lat2_deg: f64) -> f
 
 #[derive(Clone, PartialEq, Eq, Copy)]
 enum NodeOrientation {
-    LEFT, RIGHT, MID
+    LEFT,
+    RIGHT,
+    MID,
 }

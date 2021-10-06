@@ -21,10 +21,10 @@ impl NavigatorUseCase {
         }
     }
 
-    pub(crate) fn build_graph(&self) {
+    pub(crate) fn build_graph(&self, number_nodes: usize) {
         let clone = self.navigator.clone();
         thread::spawn(move || {
-            clone.lock().expect("could not lock graph").build_graph();
+            clone.lock().expect("could not lock graph").build_graph(number_nodes);
         });
     }
 
@@ -90,6 +90,10 @@ impl NavigatorUseCase {
         }
         let n = self.route_repo.lock().unwrap();
         n.get_route(id)
+    }
+
+    pub(crate) fn test_ch(&self) {
+        //self.navigator.lock().unwrap().test_ch();
     }
 
     #[allow(dead_code)]

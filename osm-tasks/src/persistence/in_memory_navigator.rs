@@ -12,10 +12,14 @@ use crate::algorithms::a_star::AStar;
 use std::convert::TryFrom;
 use termion::color;
 use crate::algorithms::bd_dijkstra::BdDijkstra;
-use crate::import::pbf_reader::read_or_create_graph;
+use crate::import::pbf_reader::{read_or_create_graph, read_or_create_cn_metadata};
+use crate::algorithms::cn_graph_creator::CNGraphCreator;
+use crate::model::cn_model::CNMetadata;
+use crate::algorithms::cn_search::CNBdDijkstra;
 
 pub(crate) struct InMemoryGraph {
     graph: GridGraph,
+    cn_metadata: CNMetadata,
     dijkstra: Option<Dijkstra>,
     nearest_neighbor: Option<NearestNeighbor>,
 }
@@ -23,12 +27,19 @@ pub(crate) struct InMemoryGraph {
 impl Navigator for InMemoryGraph {
     fn new() -> InMemoryGraph {
         let config = Config::global();
+
+        let cn_metadata = CNMetadata {
+            graph: GridGraph::default(),
+            get_shortcut: HashMap::new(),
+        };
+
         if config.build_graph_on_startup() {
-            let graph = read_or_create_graph(config.coastlines_file(), false);
+            let graph = read_or_create_graph(config.coastlines_file(), false, config.number_of_nodes());
             let dijkstra = Some(Dijkstra::new(graph.adjacency_array(), graph.nodes.len() as u32 - 1));
             let nearest_neighbor = Some(NearestNeighbor::new(&graph.nodes));
             InMemoryGraph {
                 graph,
+                cn_metadata,
                 dijkstra,
                 nearest_neighbor,
             }
@@ -36,16 +47,19 @@ impl Navigator for InMemoryGraph {
             InMemoryGraph {
                 graph: GridGraph::default(),
                 dijkstra: None,
+                cn_metadata,
                 nearest_neighbor: None,
             }
         }
     }
 
-    fn build_graph(&mut self) {
+    fn build_graph(&mut self, number_nodes: usize) {
         let config = Config::global();
-        self.graph = read_or_create_graph(config.coastlines_file(), config.force_rebuild_graph());
-        self.dijkstra = Some(Dijkstra::new(self.graph.adjacency_array(), self.get_number_nodes() - 1));
+        self.graph = read_or_create_graph(config.coastlines_file(), false, number_nodes);
+        self.dijkstra = Some(Dijkstra::new(self.graph.adjacency_array(), (number_nodes - 1) as u32));
         self.nearest_neighbor = Some(NearestNeighbor::new(&self.graph.nodes));
+
+        self.cn_metadata = read_or_create_cn_metadata(config.coastlines_file(), false, number_nodes, &self.graph);
     }
 
     fn calculate_route(&mut self, route_request: RouteRequest) -> Option<ShipRoute> {
@@ -140,6 +154,30 @@ impl Navigator for InMemoryGraph {
         None
     }
 
+    fn test_ch(&mut self, start_node: u32, end_node: u32, query_id: usize) -> Option<BenchmarkResult> {
+        let mut ch_bd_dijkstra = CNBdDijkstra::new(&self.cn_metadata, start_node);
+        println!("cn graph edges {} normal graph edges {}", self.cn_metadata.graph.edges.concat().len(), self.graph.edges.concat().len());
+        let start_time = Instant::now();
+        if let Some(route_and_distance) = ch_bd_dijkstra.find_route(end_node) {
+            let route: Vec<u32> = route_and_distance.0;
+            let distance = route_and_distance.1;
+            let nodes_route: Vec<Node> = route.into_iter().map(|i| { self.graph.nodes[i as usize] }).collect();
+            let time: u128 = start_time.elapsed().as_nanos();
+            println!("CH Dijkstra calculated route from {} to {} with distance {} and number_nodes {} in {} ns, or {} ms",
+                     start_node, end_node, distance, nodes_route.len(), start_time.elapsed().as_nanos(), start_time.elapsed().as_millis());
+            return Some(BenchmarkResult {
+                start_node: self.graph.nodes[start_node as usize],
+                end_node: self.graph.nodes[end_node as usize],
+                nmb_nodes: nodes_route.len(),
+                distance,
+                time: u64::try_from(time).expect("time too big"),
+                query_id,
+                amount_nodes_popped: route_and_distance.2,
+            });
+        }
+        None
+    }
+
     fn get_number_nodes(&self) -> u32 {
         self.graph.nodes.len() as u32
     }
@@ -191,6 +229,8 @@ impl Navigator for InMemoryGraph {
                 }
                 bd_dijkstra_time_per_distance.push((bd_dijkstra_res.distance as u64 / bd_dijkstra_res.time) as f32);
             }
+
+            let ch_result = self.test_ch(start_node, end_node, i);
         }
         let mut results = CollectedBenchmarks {
             dijkstra: AlgoBenchmark {

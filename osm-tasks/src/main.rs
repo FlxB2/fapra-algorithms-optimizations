@@ -44,9 +44,9 @@ struct Response {
 }
 
 #[openapi]
-#[post("/buildGraph")]
-fn build_graph(navigator_use_case: State<NavigatorUseCase>) {
-    navigator_use_case.build_graph();
+#[post("/buildGraph?<num_nodes>")]
+fn build_graph(num_nodes: usize, navigator_use_case: State<NavigatorUseCase>) {
+    navigator_use_case.build_graph(num_nodes);
 }
 
 #[openapi]
@@ -61,10 +61,12 @@ fn test(navigator_use_case: State<NavigatorUseCase>) -> Json<u32> {
 fn route(lat_start: f64, lon_start: f64, lat_end: f64, lon_end: f64, navigator_use_case: State<NavigatorUseCase>) -> Option<Json<Option<u32>>> {
     let route_request = RouteRequest {
         start: Node {
+            removed: false,
             lon: lon_start,
             lat: lat_start
         },
         end: Node {
+            removed: false,
             lon: lon_end,
             lat: lat_end
         }
@@ -121,6 +123,12 @@ fn benchmark_results(navigator_use_case: State<NavigatorUseCase>) -> Option<Json
     None
 }
 
+#[openapi]
+#[get("/testCH")]
+fn test_ch(navigator_use_case: State<NavigatorUseCase>) {
+    navigator_use_case.test_ch();
+}
+
 fn main() {
     Config::init();
     let config = Config::global();
@@ -145,7 +153,7 @@ fn rocket() {
     rocket::ignite()
         .attach(CORS)
         .manage(navigator_use_case)
-        .mount("/", routes_with_openapi![job_status, job_result, route, build_graph, test, start_benchmark, check_benchmark, benchmark_results])
+        .mount("/", routes_with_openapi![job_status, job_result, route, build_graph, test, start_benchmark, check_benchmark, benchmark_results, test_ch])
         .mount(
             "/swagger-ui/",
             make_swagger_ui(&SwaggerUIConfig {
