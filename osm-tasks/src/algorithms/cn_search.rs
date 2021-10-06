@@ -2,7 +2,6 @@ use std::collections::{BinaryHeap};
 use crate::model::adjacency_array::AdjacencyArray;
 use crate::model::grid_graph::GridGraph;
 use crate::model::cn_model::CNMetadata;
-use termion::color;
 use crate::model::priority_heap_item::PriorityHeapItem;
 use crate::model::heap_item::HeapItem;
 

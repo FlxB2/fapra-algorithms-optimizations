@@ -10,7 +10,6 @@ use std::time::Instant;
 use crate::config::Config;
 use crate::model::adjacency_array::AdjacencyArray;
 use crate::algorithms::polygon_test::PointInPolygonTest;
-use std::collections::HashMap;
 
 /// Returns the upper bound of the number of nodes in this graph.
 pub fn get_maximum_number_of_nodes() -> usize {

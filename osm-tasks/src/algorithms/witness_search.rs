@@ -1,7 +1,6 @@
 use std::collections::{BinaryHeap, HashMap};
 use crate::model::adjacency_array::AdjacencyArray;
 use crate::model::heap_item::HeapItem;
-use crate::model::grid_graph::GridGraph;
 
 pub(crate) struct WitnessSearch<'a> {
     graph_ref: &'a AdjacencyArray,

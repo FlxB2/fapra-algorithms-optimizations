@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use crate::model::adjacency_array::AdjacencyArray;
 use crate::model::grid_graph::GridGraph;

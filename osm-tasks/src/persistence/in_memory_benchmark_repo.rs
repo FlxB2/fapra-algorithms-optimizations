@@ -1,6 +1,5 @@
 use crate::model::benchmark::{CollectedBenchmarks, AlgoBenchmark};
 use crate::persistence::benchmark_repo::BenchmarkRepo;
-use std::collections::HashMap;
 
 pub(crate) struct InMemoryBenchmarkRepo {
     benchmarks: CollectedBenchmarks,
