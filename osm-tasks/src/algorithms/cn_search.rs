@@ -70,9 +70,9 @@ impl<'a> CNBdDijkstra<'a> {
         route.push(destination_node);
 
         // unwrap shortcuts to real path - current route still contains shortcuts
-        //let complete_route = self.unwrap_shortcuts(&route);
+        let complete_route = self.unwrap_shortcuts(&route);
 
-        Some((route,
+        Some((complete_route,
               self.forward_distances[meeting_node as usize] + self.backward_distances[meeting_node as usize],
               (self.amount_nodes_popped_forward + self.amount_nodes_popped_backward) as u32))
     }
@@ -82,7 +82,7 @@ impl<'a> CNBdDijkstra<'a> {
 
         for i in 0..route.len() {
             let source = route[i];
-            if i + 1 < route.len() - 1 {
+            if i + 1 < route.len() {
                 let target = route[i + 1];
                 let key = source.to_string() + "_" + &*target.to_string();
                 if let Some((_key, shortcut)) = self.meta.get_shortcut.get_key_value(&key) {
@@ -91,6 +91,8 @@ impl<'a> CNBdDijkstra<'a> {
                 } else {
                     result.push(source);
                 }
+            } else {
+                result.push(source);
             }
         }
         return result;
@@ -144,14 +146,13 @@ impl<'a> CNBdDijkstra<'a> {
                 let neighbor = neighbors_and_distances[i];
                 let neighbor_distance = neighbors_and_distances[i + 1];
 
-                let mut heuristic = 0;
                 let score = curr.distance + neighbor_distance;
                 let mut priority = score as u64;
 
 
                 let key = curr.node_id.to_string() + "_" + &*neighbor.to_string();
                 if rank < 6 && self.meta.get_shortcut.contains_key(&*key) == false {
-                    continue;
+                    //continue;
                 }
 
                 if self.forward_distances[neighbor as usize] == u32::MAX || self.forward_distances[neighbor as usize] > score {
@@ -164,7 +165,7 @@ impl<'a> CNBdDijkstra<'a> {
                         priority,
                         previous_node: curr.node_id,
                     });
-                    self.update_best_path_forward(neighbor as usize, score, heuristic);
+                    self.update_best_path_forward(neighbor as usize, score);
                 }
             }
         }
@@ -183,14 +184,13 @@ impl<'a> CNBdDijkstra<'a> {
                 let neighbor = neighbors_and_distances[i];
                 let neighbor_distance = neighbors_and_distances[i + 1];
 
-                let mut heuristic = 0;
                 let score = curr.distance + neighbor_distance;
                 let mut priority = score as u64;
 
 
                 let key = curr.node_id.to_string() + "_" + &*neighbor.to_string();
                 if rank < 6 && self.meta.get_shortcut.contains_key(&*key) == false {
-                    continue;
+                    //continue;
                 }
 
                 if self.backward_distances[neighbor as usize] == u32::MAX || self.backward_distances[neighbor as usize] > score {
@@ -203,13 +203,13 @@ impl<'a> CNBdDijkstra<'a> {
                         priority,
                         previous_node: curr.node_id,
                     });
-                    self.update_best_path_backward(neighbor as usize, score, heuristic);
+                    self.update_best_path_backward(neighbor as usize, score);
                 }
             }
         }
     }
 
-    fn update_best_path_forward(&mut self, neighbor: usize, score: u32, heuristic: u32) -> bool {
+    fn update_best_path_forward(&mut self, neighbor: usize, score: u32) -> bool {
         if self.backward_previous_nodes[neighbor as usize] != u32::MAX {
             // backward search already found this node
             let new_mu = self.backward_distances[neighbor as usize] + score;
@@ -222,7 +222,7 @@ impl<'a> CNBdDijkstra<'a> {
         false
     }
 
-    fn update_best_path_backward(&mut self, neighbor: usize, score: u32, heuristic: u32) -> bool {
+    fn update_best_path_backward(&mut self, neighbor: usize, score: u32) -> bool {
         if self.forward_previous_nodes[neighbor as usize] != u32::MAX {
             // backward search already found this node
             let new_mu = self.forward_distances[neighbor as usize] + score;

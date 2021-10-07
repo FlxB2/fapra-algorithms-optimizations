@@ -154,7 +154,7 @@ impl Navigator for InMemoryGraph {
     }
 
     fn benchmark_ch(&mut self, start_node: u32, end_node: u32, query_id: usize) -> Option<BenchmarkResult> {
-        let mut ch_bd_dijkstra = AStar::new(&self.cn_metadata.graph, start_node);
+        let mut ch_bd_dijkstra = CNBdDijkstra::new(&self.cn_metadata, start_node);
         println!("cn graph edges {} normal graph edges {}", self.cn_metadata.graph.edges.concat().len(), self.graph.edges.concat().len());
         let start_time = Instant::now();
         if let Some(route_and_distance) = ch_bd_dijkstra.find_route(end_node) {

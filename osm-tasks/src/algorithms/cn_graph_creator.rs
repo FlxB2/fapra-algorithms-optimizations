@@ -108,11 +108,14 @@ impl<'a> CNGraphCreator<'a> {
                     max_nmb_nodes = rank_map[rank].len();
                     index_max_nmb_nodes_in_rank = rank;
                 }
-                //println!("rank {}, len {}", rank, rank_map[rank].len());
+                println!("rank {}, len {}", rank, rank_map[rank].len());
             }
+            // we don't create shortcuts for the core
             rank_map[index_max_nmb_nodes_in_rank] = vec![];
-            // TODO this might be shit, way too many duplicate paths? okay maybe not
-            for i in 1..6 {
+
+            // we only contract nodes with a low rank, most nodes are in rank 8, which we
+            // skip to leave an uncontracted core
+            for i in 1..7 {
                 // we only create shortcuts between lower to higher ranks
                 let destinations: &[u32] = &rank_map[i + 1..rank_map.len()].concat();
                 for j in 0..rank_map[i].len() {
