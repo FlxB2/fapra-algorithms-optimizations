@@ -59,6 +59,7 @@ pub(crate) fn read_or_create_cn_metadata<S: AsRef<OsStr> + ?Sized>(osm_path_name
 
     let path = osm_path.with_file_name(graph_file_name);
 
+    println!("trying to load {}", path.to_str().expect("failed"));
     if !force_recreate {
         let disk_graph = load_cn_meta_from_disk(&path);
         if disk_graph.is_ok() {

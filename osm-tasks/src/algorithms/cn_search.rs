@@ -119,7 +119,7 @@ impl<'a> CNBdDijkstra<'a> {
         loop {
             let curr_mu = self.forward_heap.peek().unwrap().distance + self.backward_heap.peek().unwrap().distance;
 
-            if curr_mu >= self.mu {
+            if curr_mu > self.mu {
                 return self.meeting_node;
             }
 
@@ -137,6 +137,8 @@ impl<'a> CNBdDijkstra<'a> {
             self.amount_nodes_popped_forward += 1;
             let neighbors_and_distances = adj_array.get_neighbors_of_node_and_distances(curr.node_id);
 
+            let rank = neighbors_and_distances.len() / 2;
+
             // iterate over children
             for i in (0..neighbors_and_distances.len()).step_by(2) {
                 let neighbor = neighbors_and_distances[i];
@@ -146,11 +148,11 @@ impl<'a> CNBdDijkstra<'a> {
                 let score = curr.distance + neighbor_distance;
                 let mut priority = score as u64;
 
-                /*
+
                 let key = curr.node_id.to_string() + "_" + &*neighbor.to_string();
-                if self.meta.get_shortcut.contains_key(&*key) {
-                    //priority -= 10000;
-                }*/
+                if rank < 6 && self.meta.get_shortcut.contains_key(&*key) == false {
+                    continue;
+                }
 
                 if self.forward_distances[neighbor as usize] == u32::MAX || self.forward_distances[neighbor as usize] > score {
                     // we did not encounter this node before
@@ -174,6 +176,8 @@ impl<'a> CNBdDijkstra<'a> {
             self.amount_nodes_popped_backward += 1;
             let neighbors_and_distances = adj_array.get_neighbors_of_node_and_distances(curr.node_id);
 
+            let rank = neighbors_and_distances.len() / 2;
+
             // iterate over children
             for i in (0..neighbors_and_distances.len()).step_by(2) {
                 let neighbor = neighbors_and_distances[i];
@@ -183,11 +187,11 @@ impl<'a> CNBdDijkstra<'a> {
                 let score = curr.distance + neighbor_distance;
                 let mut priority = score as u64;
 
-                /*
+
                 let key = curr.node_id.to_string() + "_" + &*neighbor.to_string();
-                if self.meta.get_shortcut.contains_key(&*key) {
-                    //priority -= 10000;
-                }*/
+                if rank < 6 && self.meta.get_shortcut.contains_key(&*key) == false {
+                    continue;
+                }
 
                 if self.backward_distances[neighbor as usize] == u32::MAX || self.backward_distances[neighbor as usize] > score {
                     // we did not encounter this node before

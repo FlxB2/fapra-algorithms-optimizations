@@ -96,7 +96,7 @@ impl<'a> WitnessSearch<'a> {
                 }
             } else {
                 //println!("Heap is empty but dest node not found. src {}", self.source_node);
-                return (vec![], vec![]);
+                return (results, distances);
             }
         }
     }
