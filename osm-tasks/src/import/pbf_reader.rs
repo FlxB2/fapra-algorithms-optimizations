@@ -64,7 +64,11 @@ pub(crate) fn read_or_create_cn_metadata<S: AsRef<OsStr> + ?Sized>(osm_path_name
         let disk_graph = load_cn_meta_from_disk(&path);
         if disk_graph.is_ok() {
             let gra = disk_graph.unwrap();
-            println!("Loaded cn metadata from disk \"{}\". Shortcut count: {}", path.to_str().unwrap(), gra.get_shortcut.keys().len());
+            let mut number_shortcuts = 0;
+            for i in gra.get_shortcuts.values() {
+                number_shortcuts += i.len();
+            }
+            println!("Loaded cn metadata from disk \"{}\". Shortcut count: {}", path.to_str().unwrap(), number_shortcuts);
             return gra;
         } else {
             println!("cn metadata not ok");

@@ -13,9 +13,9 @@ use std::convert::TryFrom;
 use termion::color;
 use crate::algorithms::bd_dijkstra::BdDijkstra;
 use crate::import::pbf_reader::{read_or_create_graph, read_or_create_cn_metadata};
-use crate::algorithms::cn_graph_creator::CNGraphCreator;
 use crate::model::cn_model::CNMetadata;
 use crate::algorithms::cn_search::CNBdDijkstra;
+use crate::algorithms::unwrap_shortcuts::unwrap_shortcuts;
 
 pub(crate) struct InMemoryGraph {
     graph: GridGraph,
@@ -30,7 +30,7 @@ impl Navigator for InMemoryGraph {
 
         let cn_metadata = CNMetadata {
             graph: GridGraph::default(),
-            get_shortcut: HashMap::new(),
+            get_shortcuts: HashMap::new(),
         };
 
         if config.build_graph_on_startup() {
@@ -66,10 +66,11 @@ impl Navigator for InMemoryGraph {
         if let Some(dijkstra) = self.dijkstra.as_mut() {
             let start_node = self.nearest_neighbor.as_ref().unwrap().find_nearest_neighbor(&route_request.start());
             let end_node = self.nearest_neighbor.as_ref().unwrap().find_nearest_neighbor(&route_request.end());
-            let mut bd = BdDijkstra::new(&self.graph, start_node);
             let start_time = Instant::now();
-            //dijkstra.change_source_node(start_node);
-            if let Some(route_and_distance) = bd.find_route(end_node) {
+            let mut tmp = AStar::new(&self.cn_metadata.graph, start_node);
+            let start_time = Instant::now();
+            //tmp.change_source_node(start_node);
+            if let Some(route_and_distance) = tmp.find_route(end_node) {
                 let route: Vec<u32> = route_and_distance.0;
                 let distance = route_and_distance.1;
                 let nodes_route: Vec<Node> = route.into_iter().map(|i| { self.graph.nodes[i as usize] }).collect();
@@ -154,12 +155,14 @@ impl Navigator for InMemoryGraph {
         None
     }
 
-    fn test_ch(&mut self, start_node: u32, end_node: u32, query_id: usize) -> Option<BenchmarkResult> {
-        let mut ch_bd_dijkstra = CNBdDijkstra::new(&self.cn_metadata, start_node);
+
+    fn benchmark_ch(&mut self, start_node: u32, end_node: u32, query_id: usize) -> Option<BenchmarkResult> {
+        let mut ch_bd_dijkstra = Dijkstra::new(self.cn_metadata.graph.adjacency_array(), start_node);
         println!("cn graph edges {} normal graph edges {}", self.cn_metadata.graph.edges.concat().len(), self.graph.edges.concat().len());
         let start_time = Instant::now();
         if let Some(route_and_distance) = ch_bd_dijkstra.find_route(end_node) {
-            let route: Vec<u32> = route_and_distance.0;
+            println!("number nodes before {}", route_and_distance.0.len());
+            let route: Vec<u32> = unwrap_shortcuts(&route_and_distance.0, &self.cn_metadata.get_shortcuts);
             let distance = route_and_distance.1;
             let nodes_route: Vec<Node> = route.into_iter().map(|i| { self.graph.nodes[i as usize] }).collect();
             let time: u128 = start_time.elapsed().as_nanos();
@@ -230,7 +233,7 @@ impl Navigator for InMemoryGraph {
                 bd_dijkstra_time_per_distance.push((bd_dijkstra_res.distance as u64 / bd_dijkstra_res.time) as f32);
             }
 
-            let ch_result = self.test_ch(start_node, end_node, i);
+            let ch_result = self.benchmark_ch(start_node, end_node, i);
         }
         let mut results: HashMap<String, AlgoBenchmark> = HashMap::new();
         results.insert(String::from("Dijkstra"), AlgoBenchmark {
@@ -252,7 +255,7 @@ impl Navigator for InMemoryGraph {
         }
     }
 }
-
 fn average(numbers: &[f32]) -> f32 {
     numbers.iter().sum::<f32>() as f32 / numbers.len() as f32
 }
+
