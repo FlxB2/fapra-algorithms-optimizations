@@ -58,3 +58,9 @@ The API is documented automatically at `http://localhost:8000/swagger-ui/index.h
 
 We used [OpenAPI 3](https://swagger.io/specification/) to specify the API interfaces between the backend and the frontend. The specification file can be found at `http://localhost:8000/openapi.json`. The file is used to generate stubs for the frontend and to document the REST API automatically.
 
+## Notes on Contraction Hierarchies
+
+The implementation provided on the main branch is not optimal and still contains some errors when producing shortcuts, e.g. shortcuts are not created between neighbors of the contracted node but between all nodes in the independent set.
+
+An alternative implementation exists on the `ch` branch. This implementation creates shortcuts between neighbors and is faster compared to the other algorithms. However, the calculated results are not always correct.
+

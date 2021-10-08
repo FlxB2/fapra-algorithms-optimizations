@@ -87,7 +87,8 @@ impl<'a> CNBdDijkstra<'a> {
                 let key = source.to_string() + "_" + &*target.to_string();
                 if let Some((_key, shortcut)) = self.meta.get_shortcut.get_key_value(&key) {
                     // found shortcut, unwrap
-                    result.append(&mut self.unwrap_shortcuts(&shortcut.replaced_edges));
+                    result.push(source);
+                    result.append(&mut self.unwrap_shortcuts(&shortcut.replaced_edges[1..shortcut.replaced_edges.len()-1].to_vec()));
                 } else {
                     result.push(source);
                 }

@@ -36,7 +36,7 @@
       <ul id="dropdown-basic" *dropdownMenu class="dropdown-menu"
           role="menu" aria-labelledby="button-basic">
         <li role="menuitem"><a class="dropdown-item" [routerLink]="'/statistics'" [queryParams]="{mode: 'time'}">Time in ns</a></li>
-        <li role="menuitem"><a class="dropdown-item" [routerLink]="'/statistics'" [queryParams]="{mode: 'amount_nodes_popped'}">Number nodes Popped</a></li>
+        <li role="menuitem"><a class="dropdown-item" [routerLink]="'/statistics'" [queryParams]="{mode: 'amount_nodes_popped'}">Number nodes popped</a></li>
       </ul>
     </div>
   </div>
@@ -44,20 +44,6 @@
     <alert [type]="alert.type" [dismissOnTimeout]="alert.timeout">{{ alert.msg }}</alert>
   </div>
 </div>
-<ng-template #data>
-  <div class="modal-header">
-    <h4 class="modal-title" id="title">How to use the routing planner</h4>
-    <button type="button" class="close pull-right" aria-label="Close" (click)="modalRefData.hide()">
-      <span aria-hidden="true">&times;</span>
-    </button>
-  </div>
-  <div class="modal-body fullscreen-modal">
-    <div id="chart"></div>
-  </div>
-  <div class="modal-footer">
-    <button type="button" class="btn btn-outline-dark" (click)="modalRefHelp.hide()">Close</button>
-  </div>
-</ng-template>
 
 <ng-template #helpTemplate>
   <div class="modal-header">

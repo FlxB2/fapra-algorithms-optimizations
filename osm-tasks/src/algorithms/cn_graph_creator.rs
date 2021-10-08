@@ -58,7 +58,7 @@ impl<'a> CNGraphCreator<'a> {
 
             while !has_enough_nodes {
                 let choices: Vec<u32> = rand::thread_rng().sample_iter(&range).take(sample_size as usize).collect();
-                println!("generated random numbers {} ms", start_time.elapsed().as_millis());
+                //println!("generated random numbers {} ms", start_time.elapsed().as_millis());
                 let mut cnt: i32 = -1;
                 'node: for node in choices {
                     cnt += 1;
@@ -114,7 +114,7 @@ impl<'a> CNGraphCreator<'a> {
             rank_map[index_max_nmb_nodes_in_rank] = vec![];
 
             // we only contract nodes with a low rank, most nodes are in rank 8, which we
-            // skip to leave an uncontracted core
+            // skip to leave an un-contracted core
             for i in 1..7 {
                 // we only create shortcuts between lower to higher ranks
                 let destinations: &[u32] = &rank_map[i + 1..rank_map.len()].concat();
@@ -154,6 +154,8 @@ impl<'a> CNGraphCreator<'a> {
     fn find_shortcuts(&mut self, node: u32, dest: &[u32], adj_array: &AdjacencyArray, removed_nodes: &HashMap<u32, bool>) {
         let mut dijkstra = WitnessSearch::new(adj_array, node, removed_nodes);
         self.contracted_nodes.insert(node, true);
+
+        // TODO actually calculate result between neighbors, not other nodes from the independent set
 
         dijkstra.change_source_node(node);
         // TODO check if uvw = length of route found (v contracted, u,w neighbors) [STALL ON DEMAND]
