@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use model::benchmark::CollectedBenchmarks;
 
-use crate::config::Config;
+use crate::config::Config as LocalConfig;
 use crate::cors::CORS;
 use crate::model::grid_graph::Node;
 use crate::navigator_use_case::NavigatorUseCase;
@@ -28,6 +28,7 @@ use crate::persistence::in_memory_routing_repo::{InMemoryRoutingRepo, RouteReque
 use crate::persistence::navigator::Navigator;
 use crate::persistence::routing_repo::RoutingRepo;
 use crate::import::pbf_reader;
+use rocket::config::{Config, Environment};
 
 mod persistence;
 mod navigator_use_case;
@@ -61,12 +62,10 @@ fn test(navigator_use_case: State<NavigatorUseCase>) -> Json<u32> {
 fn route(lat_start: f64, lon_start: f64, lat_end: f64, lon_end: f64, navigator_use_case: State<NavigatorUseCase>) -> Option<Json<Option<u32>>> {
     let route_request = RouteRequest {
         start: Node {
-            removed: false,
             lon: lon_start,
             lat: lat_start
         },
         end: Node {
-            removed: false,
             lon: lon_end,
             lat: lat_end
         }
@@ -130,8 +129,8 @@ fn test_ch(navigator_use_case: State<NavigatorUseCase>) {
 }
 
 fn main() {
-    Config::init();
-    let config = Config::global();
+    LocalConfig::init();
+    let config = LocalConfig::global();
     println!("Using file {} and a maximum number of {} nodes.", config.coastlines_file(), config.number_of_nodes());
     if let Some(geojson_path) = config.geojson_export_path().as_ref() {
         println!("Generate and export polygons as geoJSON");
@@ -150,7 +149,13 @@ fn rocket() {
     let benchmark_repo_mutex: Arc<Mutex<Box<dyn BenchmarkRepo>>> = Arc::new(Mutex::new(Box::new(in_memory_benchmark_repo)));
     let navigator_use_case = NavigatorUseCase::new(
         Arc::clone(&navigator_mutex), Arc::clone(&routing_repo_mutex), Arc::clone(&benchmark_repo_mutex));
-    rocket::ignite()
+
+    let config = Config::build(Environment::Staging)
+        .address("0.0.0.0")
+        .port(8000)
+        .finalize();
+
+    rocket::custom(config.unwrap())
         .attach(CORS)
         .manage(navigator_use_case)
         .mount("/", routes_with_openapi![job_status, job_result, route, build_graph, test, start_benchmark, check_benchmark, benchmark_results, test_ch])

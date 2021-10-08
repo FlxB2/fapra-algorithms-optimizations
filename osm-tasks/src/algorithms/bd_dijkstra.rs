@@ -103,6 +103,7 @@ impl<'a> BdDijkstra<'a> {
     fn expand_forward(&mut self, adj_array: &AdjacencyArray) {
         let current = self.forward_heap.pop();
         if let Some(curr) = current {
+            self.amount_nodes_popped_forward += 1;
             let neighbors_and_distances = adj_array.get_neighbors_of_node_and_distances(curr.node_id);
 
             // iterate over children
@@ -130,6 +131,7 @@ impl<'a> BdDijkstra<'a> {
     fn expand_backward(&mut self, adj_array: &AdjacencyArray) {
         let current = self.backward_heap.pop();
         if let Some(curr) = current {
+            self.amount_nodes_popped_backward += 1;
             let neighbors_and_distances = adj_array.get_neighbors_of_node_and_distances(curr.node_id);
 
             // iterate over children

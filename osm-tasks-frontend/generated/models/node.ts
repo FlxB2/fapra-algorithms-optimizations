@@ -3,4 +3,5 @@
 export interface Node {
   lat: number;
   lon: number;
+  removed: boolean;
 }

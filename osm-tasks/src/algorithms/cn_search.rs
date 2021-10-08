@@ -101,7 +101,7 @@ impl<'a> CNBdDijkstra<'a> {
         loop {
             let curr_mu = self.forward_heap.peek().unwrap().distance + self.backward_heap.peek().unwrap().distance;
 
-            if curr_mu >= self.mu {
+            if curr_mu > self.mu {
                 return self.meeting_node;
             }
 
@@ -129,12 +129,13 @@ impl<'a> CNBdDijkstra<'a> {
                 neighbors_and_distances = new_neighbors_and_distances.as_slice();
             }
 
+            let rank = neighbors_and_distances.len() / 2;
+
             // iterate over children
             for i in (0..neighbors_and_distances.len()).step_by(2) {
                 let neighbor = neighbors_and_distances[i];
                 let neighbor_distance = neighbors_and_distances[i + 1];
 
-                let mut heuristic = 0;
                 let score = curr.distance + neighbor_distance;
                 let mut priority = score as u64;
 
@@ -148,7 +149,7 @@ impl<'a> CNBdDijkstra<'a> {
                         priority,
                         previous_node: curr.node_id,
                     });
-                    self.update_best_path_forward(neighbor as usize, score, heuristic);
+                    self.update_best_path_forward(neighbor as usize, score);
                 }
             }
         }
@@ -170,13 +171,13 @@ impl<'a> CNBdDijkstra<'a> {
                 neighbors_and_distances = new_neighbors_and_distances.as_slice();
             }
 
+            let rank = neighbors_and_distances.len() / 2;
 
             // iterate over children
             for i in (0..neighbors_and_distances.len()).step_by(2) {
                 let neighbor = neighbors_and_distances[i];
                 let neighbor_distance = neighbors_and_distances[i + 1];
 
-                let mut heuristic = 0;
                 let score = curr.distance + neighbor_distance;
                 let mut priority = score as u64;
 
@@ -190,13 +191,13 @@ impl<'a> CNBdDijkstra<'a> {
                         priority,
                         previous_node: curr.node_id,
                     });
-                    self.update_best_path_backward(neighbor as usize, score, heuristic);
+                    self.update_best_path_backward(neighbor as usize, score);
                 }
             }
         }
     }
 
-    fn update_best_path_forward(&mut self, neighbor: usize, score: u32, heuristic: u32) -> bool {
+    fn update_best_path_forward(&mut self, neighbor: usize, score: u32) -> bool {
         if self.backward_previous_nodes[neighbor as usize] != u32::MAX {
             // backward search already found this node
             let new_mu = self.backward_distances[neighbor as usize] + score;
@@ -209,7 +210,7 @@ impl<'a> CNBdDijkstra<'a> {
         false
     }
 
-    fn update_best_path_backward(&mut self, neighbor: usize, score: u32, heuristic: u32) -> bool {
+    fn update_best_path_backward(&mut self, neighbor: usize, score: u32) -> bool {
         if self.forward_previous_nodes[neighbor as usize] != u32::MAX {
             // backward search already found this node
             let new_mu = self.forward_distances[neighbor as usize] + score;

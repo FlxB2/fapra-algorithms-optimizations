@@ -1,16 +1,10 @@
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::{HashMap};
 use crate::model::adjacency_array::AdjacencyArray;
-use crate::model::grid_graph::{GridGraph, Edge, Node};
+use crate::model::grid_graph::{GridGraph, Edge};
 use crate::model::heap_item::HeapItem;
-use crate::algorithms::dijkstra::Dijkstra;
 use crate::algorithms::witness_search::WitnessSearch;
-use rand_xorshift::XorShiftRng;
-use std::io::BufWriter;
-use std::fs::File;
-use std::path::Path;
 use rand::Rng;
 use rand::distributions::Uniform;
-use rand::prelude::SliceRandom;
 use crate::model::cn_model::{Shortcut, CNMetadata};
 use std::time::Instant;
 use std::collections::hash_map::Entry;
@@ -18,16 +12,6 @@ use std::collections::hash_map::Entry;
 pub(crate) struct CNGraphCreator<'a> {
     graph_ref: &'a GridGraph,
     modified_graph: GridGraph,
-    forward_heap: BinaryHeap<HeapItem>,
-    backward_heap: BinaryHeap<HeapItem>,
-    forward_distances: Vec<u32>,
-    backward_distances: Vec<u32>,
-    forward_previous_nodes: Vec<u32>,
-    backward_previous_nodes: Vec<u32>,
-    amount_nodes_popped_forward: usize,
-    amount_nodes_popped_backward: usize,
-    mu: u32,
-    meeting_node: u32,
     contracted_nodes: HashMap<u32, bool>,
     // format to create unique key s.edge.source.to_string() + &*s.edge.target.to_string()
     // value is index of shortcut in self.shortcut - enables faster unwrapping
@@ -38,12 +22,6 @@ pub(crate) struct CNGraphCreator<'a> {
 impl<'a> CNGraphCreator<'a> {
     pub fn new(graph: &GridGraph) -> CNGraphCreator {
         let number_of_nodes = graph.nodes.len() as usize;
-        let forward_heap = BinaryHeap::with_capacity(number_of_nodes);
-        let backward_heap = BinaryHeap::with_capacity(number_of_nodes);
-        let forward_distances = vec![u32::MAX; number_of_nodes];
-        let backward_distances = vec![u32::MAX; number_of_nodes];
-        let forward_previous_nodes = vec![u32::MAX; number_of_nodes];
-        let backward_previous_nodes = vec![u32::MAX; number_of_nodes];
 
         return CNGraphCreator {
             graph_ref: graph,
@@ -53,16 +31,6 @@ impl<'a> CNGraphCreator<'a> {
                 edges: vec![],
                 nodes: vec![],
             },
-            forward_heap,
-            backward_heap,
-            forward_distances,
-            backward_distances,
-            forward_previous_nodes,
-            backward_previous_nodes,
-            amount_nodes_popped_forward: 0,
-            amount_nodes_popped_backward: 0,
-            mu: u32::MAX,
-            meeting_node: u32::MAX,
             contracted_nodes: HashMap::new(),
             get_shortcuts: HashMap::new(),
             number_shortcuts_added: 0
@@ -73,16 +41,16 @@ impl<'a> CNGraphCreator<'a> {
         println!("starting to create cn metadata");
         let number_edges_before = self.graph_ref.edges.concat().len();
         let mut collected_nodes = 0.0;
-        self.modified_graph = (self.graph_ref).clone();
+        self.modified_graph = (*self.graph_ref).clone();
         let mut removed_nodes: HashMap<u32, bool> = HashMap::new();
-        let mut i_set_size = ((1.0 / 100.0) * self.modified_graph.number_nodes as f64) as usize;
+        let i_set_size = ((1.0 / 100.0) * self.modified_graph.number_nodes as f64) as usize;
 
         let start_time = Instant::now();
 
         // we aim to contract 90% of nodes
         while collected_nodes < ((9.0 / 10.0) * self.graph_ref.number_nodes as f64) {
             println!("generating new independent set {} ms", start_time.elapsed().as_millis());
-            let mut modified_adj_array = self.modified_graph.adjacency_array();
+            let modified_adj_array = self.modified_graph.adjacency_array();
 
             // create independent set by picking nodes randomly
             let mut disallowed_nodes: HashMap<u32, bool> = HashMap::new();
@@ -93,7 +61,7 @@ impl<'a> CNGraphCreator<'a> {
 
             while !has_enough_nodes {
                 let choices: Vec<u32> = rand::thread_rng().sample_iter(&range).take(sample_size as usize).collect();
-                println!("generated random numbers {} ms", start_time.elapsed().as_millis());
+                //println!("generated random numbers {} ms", start_time.elapsed().as_millis());
                 let mut cnt: i32 = -1;
                 'node: for node in choices {
                     cnt += 1;
@@ -105,7 +73,7 @@ impl<'a> CNGraphCreator<'a> {
                         continue 'node;
                     }
                     let neighbors_distances = modified_adj_array.get_neighbors_of_node_and_distances(node);
-                    'neighbor: for neighbor in (0..neighbors_distances.len()).step_by(2) {
+                    for neighbor in (0..neighbors_distances.len()).step_by(2) {
                         if disallowed_nodes.contains_key(&(neighbor as u32)) {
                             continue 'node;
                         }
@@ -143,8 +111,9 @@ impl<'a> CNGraphCreator<'a> {
                     max_nmb_nodes = rank_map[rank].len();
                     index_max_nmb_nodes_in_rank = rank;
                 }
-                //println!("rank {}, len {}", rank, rank_map[rank].len());
+                println!("rank {}, len {}", rank, rank_map[rank].len());
             }
+            // we don't create shortcuts for the core
             rank_map[index_max_nmb_nodes_in_rank] = vec![];
 
             for i in 1..rank_map.len() {

@@ -15,7 +15,6 @@ use std::ffi::OsStr;
 use crate::export::json_generator::JsonBuilder;
 use crate::export::kml_exporter::KmlExport;
 use crate::model::grid_graph::GridGraph;
-use crate::model::grid_graph;
 use crate::model::cn_model::CNMetadata;
 use crate::algorithms::cn_graph_creator::CNGraphCreator;
 
@@ -60,6 +59,7 @@ pub(crate) fn read_or_create_cn_metadata<S: AsRef<OsStr> + ?Sized>(osm_path_name
 
     let path = osm_path.with_file_name(graph_file_name);
 
+    println!("trying to load {}", path.to_str().expect("failed"));
     if !force_recreate {
         let disk_graph = load_cn_meta_from_disk(&path);
         if disk_graph.is_ok() {

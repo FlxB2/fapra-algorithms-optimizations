@@ -9,6 +9,8 @@ import { RequestBuilder } from '../request-builder';
 import { Observable } from 'rxjs';
 import { map, filter } from 'rxjs/operators';
 
+import { CollectedBenchmarks } from '../models/collected-benchmarks';
+import { Response } from '../models/response';
 import { ShipRoute } from '../models/ship-route';
 
 @Injectable({
@@ -23,9 +25,52 @@ export class ApiService extends BaseService {
   }
 
   /**
+   * Path part for operation benchmarkResults
+   */
+  static readonly BenchmarkResultsPath = '/benchmarkResults';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `benchmarkResults()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  benchmarkResults$Response(params?: {
+  }): Observable<StrictHttpResponse<CollectedBenchmarks>> {
+
+    const rb = new RequestBuilder(this.rootUrl, ApiService.BenchmarkResultsPath, 'get');
+    if (params) {
+    }
+
+    return this.http.request(rb.build({
+      responseType: 'json',
+      accept: 'application/json'
+    })).pipe(
+      filter((r: any) => r instanceof HttpResponse),
+      map((r: HttpResponse<any>) => {
+        return r as StrictHttpResponse<CollectedBenchmarks>;
+      })
+    );
+  }
+
+  /**
+   * This method provides access to only to the response body.
+   * To access the full response (for headers, for example), `benchmarkResults$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  benchmarkResults(params?: {
+  }): Observable<CollectedBenchmarks> {
+
+    return this.benchmarkResults$Response(params).pipe(
+      map((r: StrictHttpResponse<CollectedBenchmarks>) => r.body as CollectedBenchmarks)
+    );
+  }
+
+  /**
    * Path part for operation buildGraph
    */
-  static readonly BuildGraphPath = '/build_graph';
+  static readonly BuildGraphPath = '/buildGraph';
 
   /**
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
@@ -33,11 +78,13 @@ export class ApiService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  buildGraph$Response(params?: {
+  buildGraph$Response(params: {
+    num_nodes: number;
   }): Observable<StrictHttpResponse<void>> {
 
     const rb = new RequestBuilder(this.rootUrl, ApiService.BuildGraphPath, 'post');
     if (params) {
+      rb.query('num_nodes', params.num_nodes, {});
     }
 
     return this.http.request(rb.build({
@@ -57,11 +104,55 @@ export class ApiService extends BaseService {
    *
    * This method doesn't expect any request body.
    */
-  buildGraph(params?: {
+  buildGraph(params: {
+    num_nodes: number;
   }): Observable<void> {
 
     return this.buildGraph$Response(params).pipe(
       map((r: StrictHttpResponse<void>) => r.body as void)
+    );
+  }
+
+  /**
+   * Path part for operation checkBenchmark
+   */
+  static readonly CheckBenchmarkPath = '/isBenchmarkRunning';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `checkBenchmark()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  checkBenchmark$Response(params?: {
+  }): Observable<StrictHttpResponse<boolean>> {
+
+    const rb = new RequestBuilder(this.rootUrl, ApiService.CheckBenchmarkPath, 'get');
+    if (params) {
+    }
+
+    return this.http.request(rb.build({
+      responseType: 'json',
+      accept: 'application/json'
+    })).pipe(
+      filter((r: any) => r instanceof HttpResponse),
+      map((r: HttpResponse<any>) => {
+        return (r as HttpResponse<any>).clone({ body: String((r as HttpResponse<any>).body) === 'true' }) as StrictHttpResponse<boolean>;
+      })
+    );
+  }
+
+  /**
+   * This method provides access to only to the response body.
+   * To access the full response (for headers, for example), `checkBenchmark$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  checkBenchmark(params?: {
+  }): Observable<boolean> {
+
+    return this.checkBenchmark$Response(params).pipe(
+      map((r: StrictHttpResponse<boolean>) => r.body as boolean)
     );
   }
 
@@ -213,9 +304,98 @@ export class ApiService extends BaseService {
   }
 
   /**
+   * Path part for operation startBenchmark
+   */
+  static readonly StartBenchmarkPath = '/startBenchmark';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `startBenchmark()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  startBenchmark$Response(params: {
+    nmb_queries: number;
+  }): Observable<StrictHttpResponse<Response>> {
+
+    const rb = new RequestBuilder(this.rootUrl, ApiService.StartBenchmarkPath, 'post');
+    if (params) {
+      rb.query('nmb_queries', params.nmb_queries, {});
+    }
+
+    return this.http.request(rb.build({
+      responseType: 'json',
+      accept: 'application/json'
+    })).pipe(
+      filter((r: any) => r instanceof HttpResponse),
+      map((r: HttpResponse<any>) => {
+        return r as StrictHttpResponse<Response>;
+      })
+    );
+  }
+
+  /**
+   * This method provides access to only to the response body.
+   * To access the full response (for headers, for example), `startBenchmark$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  startBenchmark(params: {
+    nmb_queries: number;
+  }): Observable<Response> {
+
+    return this.startBenchmark$Response(params).pipe(
+      map((r: StrictHttpResponse<Response>) => r.body as Response)
+    );
+  }
+
+  /**
+   * Path part for operation testCh
+   */
+  static readonly TestChPath = '/testCH';
+
+  /**
+   * This method provides access to the full `HttpResponse`, allowing access to response headers.
+   * To access only the response body, use `testCh()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  testCh$Response(params?: {
+  }): Observable<StrictHttpResponse<void>> {
+
+    const rb = new RequestBuilder(this.rootUrl, ApiService.TestChPath, 'get');
+    if (params) {
+    }
+
+    return this.http.request(rb.build({
+      responseType: 'text',
+      accept: '*/*'
+    })).pipe(
+      filter((r: any) => r instanceof HttpResponse),
+      map((r: HttpResponse<any>) => {
+        return (r as HttpResponse<any>).clone({ body: undefined }) as StrictHttpResponse<void>;
+      })
+    );
+  }
+
+  /**
+   * This method provides access to only to the response body.
+   * To access the full response (for headers, for example), `testCh$Response()` instead.
+   *
+   * This method doesn't expect any request body.
+   */
+  testCh(params?: {
+  }): Observable<void> {
+
+    return this.testCh$Response(params).pipe(
+      map((r: StrictHttpResponse<void>) => r.body as void)
+    );
+  }
+
+  /**
    * Path part for operation test
    */
-  static readonly TestPath = '/test_graph';
+  static readonly TestPath = '/testGraph';
 
   /**
    * This method provides access to the full `HttpResponse`, allowing access to response headers.

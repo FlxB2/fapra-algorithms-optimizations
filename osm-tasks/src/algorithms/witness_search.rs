@@ -1,7 +1,6 @@
 use std::collections::{BinaryHeap, HashMap};
 use crate::model::adjacency_array::AdjacencyArray;
 use crate::model::heap_item::HeapItem;
-use crate::model::grid_graph::GridGraph;
 
 pub(crate) struct WitnessSearch<'a> {
     graph_ref: &'a AdjacencyArray,
@@ -46,10 +45,6 @@ impl<'a> WitnessSearch<'a> {
     }
 
     pub fn find_route(&mut self, destination_nodes: &[u32]) -> Option<(Vec<Vec<u32>>, Vec<u32>, u32)> {
-        /* disable caching
-        if self.distances[destination_node as usize] != u32::MAX {
-            return Some((self.traverse_route(&destination_node), self.distances[destination_node as usize]));
-        } */
         let result = self.dijkstra(destination_nodes);
         if result.1.len() > 0 {
             Some((result.0, result.1, self.amount_nodes_popped))
@@ -97,7 +92,7 @@ impl<'a> WitnessSearch<'a> {
                 }
             } else {
                 //println!("Heap is empty but dest node not found. src {}", self.source_node);
-                return (vec![], vec![]);
+                return (results, distances);
             }
         }
     }
